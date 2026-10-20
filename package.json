@@ -12,6 +12,7 @@
     "@ai-sdk/openai": "^4.0.97",
     "@ai-sdk/react": "^4.0.149",
     "@clerk/nextjs": "^7.9.17",
+    "@libsql/client": "^0.18.0",
     "ai": "^7.0.145",
     "next": "16.4.2",
     "react": "19.3.0",

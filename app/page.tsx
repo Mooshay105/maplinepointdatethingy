@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import MapView from "./components/MapView";
+import MapView from "../db/components/MapView";
 import { Point } from "@/utils/types";
-import Chat from "./components/Chat";
+import Chat from "../db/components/Chat";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { Show, SignInButton, UserButton, useAuth } from "@clerk/nextjs";
+import {
+	createEvent,
+	createEvents,
+	deleteEvent,
+	fetchEvents,
+	flushAllUpdates,
+	updateEvent,
+} from "@/utils/eventsSync";
 
 /**
  * Parses "DD/MM/YYYY" (en-NZ format). Returns null if invalid.
@@ -43,22 +51,59 @@ export default function Home() {
 		nameInHoverMenu: "false",
 		dateInHoverMenu: "false",
 	});
+	const [copied, setCopied] = useState(false);
 	const [openaiApiKey, setOpenaiApiKey] = useState("");
 	const [showApiKey, setShowApiKey] = useState(false);
+	const [loadError, setLoadError] = useState<string | null>(null);
 	const pointsRef = useRef(points);
 	const openaiApiKeyRef = useRef(openaiApiKey);
+	const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
 
 	useEffect(() => {
-		const stored = localStorage.getItem("points");
-		if (stored) {
-			const parsed: any[] = JSON.parse(stored);
-			setPoints(parsed.map((p) => ({ ...p, date: new Date(p.date) })));
-		}
 		const storedKey = localStorage.getItem("openaiApiKey") ?? "";
 		openaiApiKeyRef.current = storedKey;
 		setOpenaiApiKey(storedKey);
-		setLoaded(true);
+
+		window.addEventListener("pagehide", flushAllUpdates);
+		return () => window.removeEventListener("pagehide", flushAllUpdates);
 	}, []);
+
+	// The db is the source of truth: load the user's events once, then edit them locally and sync changes back
+	useEffect(() => {
+		if (!authLoaded) return;
+		setLoaded(false);
+		setLoadError(null);
+		setPoints([]);
+		if (!isSignedIn) return;
+
+		let cancelled = false;
+		(async () => {
+			let events = await fetchEvents();
+
+			// One-time migration of events saved by the old localStorage-only version
+			const stored = localStorage.getItem("points");
+			if (stored) {
+				const legacy: Point[] = JSON.parse(stored).map((p: any) => ({
+					...p,
+					date: new Date(p.date),
+				}));
+				await createEvents(legacy);
+				localStorage.removeItem("points");
+				events = await fetchEvents();
+			}
+
+			if (cancelled) return;
+			setPoints(events);
+			setLoaded(true);
+		})().catch((err) => {
+			console.error(err);
+			if (!cancelled) setLoadError("Couldn't load your events.");
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [authLoaded, isSignedIn, userId]);
 
 	useEffect(() => {
 		pointsRef.current = points;
@@ -67,7 +112,6 @@ export default function Home() {
 		setPoints(points);
 		const filtered = points.filter((p) => p.visable);
 		setFilteredPoints(filtered);
-		localStorage.setItem("points", JSON.stringify(points));
 	}, [points]);
 
 	function updatePoint(id: number, changes: Partial<Point>) {
@@ -78,6 +122,7 @@ export default function Home() {
 			}
 			return next;
 		});
+		updateEvent(id, changes);
 	}
 
 	function setDraft(key: string, value: string) {
@@ -94,6 +139,7 @@ export default function Home() {
 
 	function deletePoint(id: number) {
 		setPoints((prev) => prev.filter((p) => p.id !== id));
+		deleteEvent(id);
 	}
 
 	/**
@@ -122,6 +168,7 @@ export default function Home() {
 			visable: true,
 		};
 		setPoints((prev) => [...prev, point]);
+		createEvent(point);
 		return point;
 	}
 
@@ -158,7 +205,7 @@ export default function Home() {
 	const { messages, sendMessage, status, stop, addToolOutput, error } = useChat({
 		transport,
 		sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
-		onToolCall({ toolCall }) {
+		async onToolCall({ toolCall }) {
 			if (toolCall.dynamic) return;
 
 			const input = toolCall.input as any;
@@ -218,6 +265,9 @@ export default function Home() {
 					longitude: p.lng,
 				}));
 				respond(JSON.stringify(events));
+			} else if (toolCall.toolName === "gpsLookup") {
+				// Executed on the server (OpenStreetMap), output arrives in the stream
+				return;
 			} else {
 				respond(`Tool ${toolCall.toolName} is not implemented yet`);
 			}
@@ -247,79 +297,96 @@ export default function Home() {
 					</SignInButton>
 				</Show>
 				<Show when="signed-in">
-					<UserButton>
-						<UserButton.UserProfilePage
-							label="Settings"
-							labelIcon={
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 64 64"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="4"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-								>
-									<path d="M48.17 26.75 L53.67 28.18 L53.67 35.82 L48.17 37.25 L47.15 39.72 L50.02 44.62 L44.62 50.02 L39.72 47.15 L37.25 48.17 L35.82 53.67 L28.18 53.67 L26.75 48.17 L24.28 47.15 L19.38 50.02 L13.98 44.62 L16.85 39.72 L15.83 37.25 L10.33 35.82 L10.33 28.18 L15.83 26.75 L16.85 24.28 L13.98 19.38 L19.38 13.98 L24.28 16.85 L26.75 15.83 L28.18 10.33 L35.82 10.33 L37.25 15.83 L39.72 16.85 L44.62 13.98 L50.02 19.38 L47.15 24.28 Z" />
-									<circle cx="32" cy="32" r="6" />
-								</svg>
-							}
-							url="settings"
+					<div className="flex flex-row gap-2 justify-center items-center">
+						<button
+							className="border border-[#f0f0f0] rounded-md px-2"
+							onClick={() => {
+								const host = window.location.host;
+								navigator.clipboard.writeText(`https://${host}/share/${userId}`);
+
+								setCopied(true);
+
+								setTimeout(() => {
+									setCopied(false);
+								}, 2000);
+							}}
 						>
-							<div className="flex flex-col">
-								<h1 className="text-[17px] font-bold">Settings</h1>
-								<div className="border-b border-[#ededed] mt-3.75 mb-5" />
-								<div className="flex flex-row">
-									<input
-										type="checkbox"
-										checked={settings.alwaysShowHoverMenus === "true"}
-										onChange={(e) =>
-											updateSettings({
-												alwaysShowHoverMenus: e.target.checked ? "true" : "false",
-											})
-										}
-									/>
-									<label className="ml-1 text-[13px]">Always Show Hover Menus</label>
-								</div>
-								<div className="border-b border-[#ededed] mt-3.75 mb-5" />
-								<label className="text-[13px] font-medium">OpenAI API Key</label>
-								<div className="flex flex-row mt-1">
-									<input
-										className="border border-[#d9d9d9] rounded-md px-2 py-1 text-[13px] grow"
-										type={showApiKey ? "text" : "password"}
-										autoComplete="off"
-										spellCheck={false}
-										placeholder="sk-..."
-										value={openaiApiKey}
-										onChange={(e) => updateOpenaiApiKey(e.target.value)}
-									/>
-									<button
-										className="border border-[#d9d9d9] rounded-md ml-1 px-2 text-[13px]"
-										onClick={() => setShowApiKey((v) => !v)}
+							{copied ? "Copied!" : "Share"}
+						</button>
+						<UserButton>
+							<UserButton.UserProfilePage
+								label="Settings"
+								labelIcon={
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 64 64"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="4"
+										strokeLinecap="round"
+										strokeLinejoin="round"
 									>
-										{showApiKey ? "Hide" : "Show"}
-									</button>
-									<button
-										className="border border-[#d9d9d9] rounded-md ml-1 px-2 text-[13px]"
-										onClick={() => updateOpenaiApiKey("")}
-									>
-										Clear
-									</button>
+										<path d="M48.17 26.75 L53.67 28.18 L53.67 35.82 L48.17 37.25 L47.15 39.72 L50.02 44.62 L44.62 50.02 L39.72 47.15 L37.25 48.17 L35.82 53.67 L28.18 53.67 L26.75 48.17 L24.28 47.15 L19.38 50.02 L13.98 44.62 L16.85 39.72 L15.83 37.25 L10.33 35.82 L10.33 28.18 L15.83 26.75 L16.85 24.28 L13.98 19.38 L19.38 13.98 L24.28 16.85 L26.75 15.83 L28.18 10.33 L35.82 10.33 L37.25 15.83 L39.72 16.85 L44.62 13.98 L50.02 19.38 L47.15 24.28 Z" />
+										<circle cx="32" cy="32" r="6" />
+									</svg>
+								}
+								url="settings"
+							>
+								<div className="flex flex-col">
+									<h1 className="text-[17px] font-bold">Settings</h1>
+									<div className="border-b border-[#ededed] mt-3.75 mb-5" />
+									<div className="flex flex-row">
+										<input
+											type="checkbox"
+											checked={settings.alwaysShowHoverMenus === "true"}
+											onChange={(e) =>
+												updateSettings({
+													alwaysShowHoverMenus: e.target.checked ? "true" : "false",
+												})
+											}
+										/>
+										<label className="ml-1 text-[13px]">Always Show Hover Menus</label>
+									</div>
+									<div className="border-b border-[#ededed] mt-3.75 mb-5" />
+									<label className="text-[13px] font-medium">OpenAI API Key</label>
+									<div className="flex flex-row mt-1">
+										<input
+											className="border border-[#d9d9d9] rounded-md px-2 py-1 text-[13px] grow"
+											type={showApiKey ? "text" : "password"}
+											autoComplete="off"
+											spellCheck={false}
+											placeholder="sk-..."
+											value={openaiApiKey}
+											onChange={(e) => updateOpenaiApiKey(e.target.value)}
+										/>
+										<button
+											className="border border-[#d9d9d9] rounded-md ml-1 px-2 text-[13px]"
+											onClick={() => setShowApiKey((v) => !v)}
+										>
+											{showApiKey ? "Hide" : "Show"}
+										</button>
+										<button
+											className="border border-[#d9d9d9] rounded-md ml-1 px-2 text-[13px]"
+											onClick={() => updateOpenaiApiKey("")}
+										>
+											Clear
+										</button>
+									</div>
+									<p className="text-[11px] text-[#747686] mt-1">
+										Stored only in this browser&apos;s local storage. It&apos;s sent with
+										each chat request to reach OpenAI, but never saved on the server.
+									</p>
+									<div className="border-b border-[#ededed] mt-3.75 mb-5" />
+									<p className="text-[13px] text-center">More Settings Coming Soon!</p>
 								</div>
-								<p className="text-[11px] text-[#747686] mt-1">
-									Stored only in this browser&apos;s local storage. It&apos;s sent with each chat
-									request to reach OpenAI, but never saved on the server.
-								</p>
-								<div className="border-b border-[#ededed] mt-3.75 mb-5" />
-								<p className="text-[13px] text-center">More Settings Coming Soon!</p>
-							</div>
-						</UserButton.UserProfilePage>
-					</UserButton>
+							</UserButton.UserProfilePage>
+						</UserButton>
+					</div>
 				</Show>
 			</div>
 			<MapView points={filteredPoints} />
 			<div className="fixed top-0 left-0 h-full w-1/4 bg-[#0f0f0f] border-r border-[#f0f0f0] text-white p-2 overflow-y-auto">
-				<div className="flex flex-row justify-between border-b border-[#f0f0f0]">
+				<div className="fixed top-0 left-0 w-1/4 px-2 flex flex-row justify-between border-b border-r border-[#f0f0f0] bg-[#0f0f0f]">
 					<div
 						className={`text-lg ${selected === "events" ? "underline" : ""}`}
 						onClick={() => setSelected("events")}
@@ -335,232 +402,242 @@ export default function Home() {
 				</div>
 				{selected === "events" ? (
 					<div>
-						<div className="mb-20">
-							{loaded ? (
-								points.map((p) => (
-									<div key={p.id} className="border border-[#f0f0f0] rounded-xl m-2">
-										<div className="flex flex-row">
-											<input
-												className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-												value={p.name}
-												onChange={(e) => updatePoint(p.id, { name: e.target.value })}
-												placeholder="Name"
-											/>
-											<input
-												className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-												value={
-													drafts[`${p.id}-date`] ?? p.date.toLocaleDateString("en-NZ")
-												}
-												onChange={(e) => setDraft(`${p.id}-date`, e.target.value)}
-												onBlur={() => {
-													const parsed = parseNzDate(drafts[`${p.id}-date`] ?? "");
-													if (parsed) {
-														updatePoint(p.id, { date: parsed });
-														clearDraft(`${p.id}-date`);
+						<div className="mb-30 mt-7">
+							{!authLoaded ? (
+								<div className="text-center">Loading...</div>
+							) : !isSignedIn ? (
+								<div className="text-center">Sign in to see your events.</div>
+							) : loadError ? (
+								<div className="text-center text-red-400">{loadError}</div>
+							) : loaded ? (
+								<>
+									{points.map((p) => (
+										<div key={p.id} className="border border-[#f0f0f0] rounded-xl m-2">
+											<div className="flex flex-row">
+												<input
+													className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+													value={p.name}
+													onChange={(e) => updatePoint(p.id, { name: e.target.value })}
+													placeholder="Name"
+												/>
+												<input
+													className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+													value={
+														drafts[`${p.id}-date`] ?? p.date.toLocaleDateString("en-NZ")
 													}
-												}}
-												placeholder="Date (DD/MM/YYYY)"
-											/>
-											<button
-												className="border border-[#f0f0f0] rounded-md mt-2 mr-2 px-2"
-												onClick={() => {
-													updatePoint(p.id, { visable: !p.visable });
-												}}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="28"
-													height="28"
-													viewBox="0 0 64 64"
-													fill="none"
-													stroke="#f0f0f0"
-													strokeWidth="2"
-													strokeLinecap="round"
-													strokeLinejoin="round"
+													onChange={(e) => setDraft(`${p.id}-date`, e.target.value)}
+													onBlur={() => {
+														const parsed = parseNzDate(drafts[`${p.id}-date`] ?? "");
+														if (parsed) {
+															updatePoint(p.id, { date: parsed });
+															clearDraft(`${p.id}-date`);
+														}
+													}}
+													placeholder="Date (DD/MM/YYYY)"
+												/>
+												<button
+													className="border border-[#f0f0f0] rounded-md mt-2 mr-2 px-2"
+													onClick={() => {
+														updatePoint(p.id, { visable: !p.visable });
+													}}
 												>
-													<path d="M8 32 Q32 12 56 32 Q32 52 8 32 Z" />
-													<circle cx="32" cy="32" r="8" />
-													{!p.visable ? <line x1="12" y1="12" x2="52" y2="52" /> : null}
-												</svg>
-											</button>
-										</div>
-										<div className="flex flex-row">
-											<input
-												className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-												value={drafts[`${p.id}-lat`] ?? p.lat}
-												onChange={(e) => {
-													const value = e.target.value;
-													setDraft(`${p.id}-lat`, value);
-													const n = Number(value);
-													if (value.trim() !== "" && Number.isFinite(n)) {
-														updatePoint(p.id, { lat: n });
-													}
-												}}
-												placeholder="Latitude"
-											/>
-											<input
-												className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-												value={drafts[`${p.id}-lng`] ?? p.lng}
-												onChange={(e) => {
-													const value = e.target.value;
-													setDraft(`${p.id}-lng`, value);
-													const n = Number(value);
-													if (value.trim() !== "" && Number.isFinite(n)) {
-														updatePoint(p.id, { lng: n });
-													}
-												}}
-												placeholder="Longitude"
-											/>
-											<button
-												className="border border-[#f0f0f0] rounded-md mt-2 mr-2 px-2"
-												onClick={() => {
-													deletePoint(p.id);
-												}}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="28"
-													height="28"
-													viewBox="0 0 64 64"
-													fill="none"
-													stroke="#f0f0f0"
-													strokeWidth="2"
-													strokeLinecap="round"
-													strokeLinejoin="round"
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														width="28"
+														height="28"
+														viewBox="0 0 64 64"
+														fill="none"
+														stroke="#f0f0f0"
+														strokeWidth="2"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+													>
+														<path d="M8 32 Q32 12 56 32 Q32 52 8 32 Z" />
+														<circle cx="32" cy="32" r="8" />
+														{!p.visable ? <line x1="12" y1="12" x2="52" y2="52" /> : null}
+													</svg>
+												</button>
+											</div>
+											<div className="flex flex-row">
+												<input
+													className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+													value={drafts[`${p.id}-lat`] ?? p.lat}
+													onChange={(e) => {
+														const value = e.target.value;
+														setDraft(`${p.id}-lat`, value);
+														const n = Number(value);
+														if (value.trim() !== "" && Number.isFinite(n)) {
+															updatePoint(p.id, { lat: n });
+														}
+													}}
+													placeholder="Latitude"
+												/>
+												<input
+													className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+													value={drafts[`${p.id}-lng`] ?? p.lng}
+													onChange={(e) => {
+														const value = e.target.value;
+														setDraft(`${p.id}-lng`, value);
+														const n = Number(value);
+														if (value.trim() !== "" && Number.isFinite(n)) {
+															updatePoint(p.id, { lng: n });
+														}
+													}}
+													placeholder="Longitude"
+												/>
+												<button
+													className="border border-[#f0f0f0] rounded-md mt-2 mr-2 px-2"
+													onClick={() => {
+														deletePoint(p.id);
+													}}
 												>
-													<line x1="12" y1="18" x2="52" y2="18" />
-													<path d="M26 18 V13 H38 V18" />
-													<path d="M17 18 L20 56 H44 L47 18" />
-													<line x1="28" y1="27" x2="28" y2="47" />
-													<line x1="36" y1="27" x2="36" y2="47" />
-												</svg>
-											</button>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														width="28"
+														height="28"
+														viewBox="0 0 64 64"
+														fill="none"
+														stroke="#f0f0f0"
+														strokeWidth="2"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+													>
+														<line x1="12" y1="18" x2="52" y2="18" />
+														<path d="M26 18 V13 H38 V18" />
+														<path d="M17 18 L20 56 H44 L47 18" />
+														<line x1="28" y1="27" x2="28" y2="47" />
+														<line x1="36" y1="27" x2="36" y2="47" />
+													</svg>
+												</button>
+											</div>
+											<div className="flex flex-row">
+												<select
+													className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-2 mr-1 px-2 w-1/2"
+													value={p.icon}
+													onChange={(e) =>
+														updatePoint(p.id, { icon: e.target.value as Point["icon"] })
+													}
+												>
+													<option value="indoor-athletics">Indoor</option>
+													<option value="outdoor-athletics">Outdoor</option>
+													<option value="road-running">Road Running</option>
+													<option value="cross-country">Cross Country</option>
+													<option value="trail-running">Trail Running</option>
+													<option value="combined-events">Combined Events</option>
+													<option value="race-walking">Race Walking</option>
+													<option value="diamond-league">Diamond League</option>
+												</select>
+												<select
+													className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-1 mr-2 px-2 w-1/2"
+													value={p.iconColor}
+													onChange={(e) =>
+														updatePoint(p.id, {
+															iconColor: e.target.value as Point["iconColor"],
+														})
+													}
+												>
+													<option value="red">Red</option>
+													<option value="yellow">Yellow</option>
+													<option value="orange">Orange</option>
+													<option value="green">Green</option>
+													<option value="blue">Blue</option>
+													<option value="purple">Purple</option>
+													<option value="black">Black</option>
+													<option value="grey">Grey</option>
+													<option value="white">White</option>
+												</select>
+											</div>
 										</div>
-										<div className="flex flex-row">
-											<select
-												className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-2 mr-1 px-2 w-1/2"
-												value={p.icon}
-												onChange={(e) =>
-													updatePoint(p.id, { icon: e.target.value as Point["icon"] })
-												}
-											>
-												<option value="indoor-athletics">Indoor</option>
-												<option value="outdoor-athletics">Outdoor</option>
-												<option value="road-running">Road Running</option>
-												<option value="cross-country">Cross Country</option>
-												<option value="trail-running">Trail Running</option>
-												<option value="combined-events">Combined Events</option>
-												<option value="race-walking">Race Walking</option>
-												<option value="diamond-league">Diamond League</option>
-											</select>
-											<select
-												className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-1 mr-2 px-2 w-1/2"
-												value={p.iconColor}
-												onChange={(e) =>
-													updatePoint(p.id, {
-														iconColor: e.target.value as Point["iconColor"],
-													})
-												}
-											>
-												<option value="red">Red</option>
-												<option value="yellow">Yellow</option>
-												<option value="orange">Orange</option>
-												<option value="green">Green</option>
-												<option value="blue">Blue</option>
-												<option value="purple">Purple</option>
-												<option value="black">Black</option>
-												<option value="grey">Grey</option>
-												<option value="white">White</option>
-											</select>
-										</div>
-									</div>
-								))
+									))}
+								</>
 							) : (
 								<div className="text-center">Loading...</div>
 							)}
 						</div>
-						<div className="border border-[#f0f0f0] bg-[#0f0f0f] rounded-xl m-1 flex flex-row fixed bottom-0 left-1 w-[calc(25%-16px)]">
-							<div className="flex flex-col">
-								<div className="flex flex-row">
-									<input
-										className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-										value={name}
-										onChange={(e) => setName(e.target.value)}
-										placeholder="Name"
-										onKeyDown={(e) => {
-											if (e.key === "Enter" && !e.repeat) addPoint();
-										}}
-									/>
-									<input
-										className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-										value={date}
-										onChange={(e) => setDate(e.target.value)}
-										placeholder="Date (DD/MM/YYYY)"
-										onKeyDown={(e) => {
-											if (e.key === "Enter" && !e.repeat) addPoint();
-										}}
-									/>
-								</div>
+						{loaded && isSignedIn ? (
+							<div className="border border-[#f0f0f0] bg-[#0f0f0f] rounded-xl m-1 flex flex-row fixed bottom-0 left-1 w-[calc(25%-16px)]">
+								<div className="flex flex-col">
+									<div className="flex flex-row">
+										<input
+											className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+											value={name}
+											onChange={(e) => setName(e.target.value)}
+											placeholder="Name"
+											onKeyDown={(e) => {
+												if (e.key === "Enter" && !e.repeat) addPoint();
+											}}
+										/>
+										<input
+											className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+											value={date}
+											onChange={(e) => setDate(e.target.value)}
+											placeholder="Date (DD/MM/YYYY)"
+											onKeyDown={(e) => {
+												if (e.key === "Enter" && !e.repeat) addPoint();
+											}}
+										/>
+									</div>
 
-								<div className="flex flex-row">
-									<input
-										className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-										value={lat}
-										onChange={(e) => setLat(e.target.value)}
-										placeholder="Latitude"
-										onKeyDown={(e) => {
-											if (e.key === "Enter" && !e.repeat) addPoint();
-										}}
-									/>
-									<input
-										className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-										value={lng}
-										onChange={(e) => setLng(e.target.value)}
-										placeholder="Longitude"
-										onKeyDown={(e) => {
-											if (e.key === "Enter" && !e.repeat) addPoint();
-										}}
-									/>
+									<div className="flex flex-row">
+										<input
+											className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+											value={lat}
+											onChange={(e) => setLat(e.target.value)}
+											placeholder="Latitude"
+											onKeyDown={(e) => {
+												if (e.key === "Enter" && !e.repeat) addPoint();
+											}}
+										/>
+										<input
+											className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+											value={lng}
+											onChange={(e) => setLng(e.target.value)}
+											placeholder="Longitude"
+											onKeyDown={(e) => {
+												if (e.key === "Enter" && !e.repeat) addPoint();
+											}}
+										/>
+									</div>
+									<div className="flex flex-row">
+										<select
+											className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-2 mr-1 px-2 w-1/2"
+											value={icon}
+											onChange={(e) => setIcon(e.target.value as Point["icon"])}
+										>
+											<option value="indoor-athletics">Indoor</option>
+											<option value="outdoor-athletics">Outdoor</option>
+											<option value="road-running">Road Running</option>
+											<option value="cross-country">Cross Country</option>
+											<option value="trail-running">Trail Running</option>
+											<option value="combined-events">Combined Events</option>
+											<option value="race-walking">Race Walking</option>
+											<option value="diamond-league">Diamond League</option>
+										</select>
+										<select
+											className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-1 mr-2 px-2 w-1/2"
+											value={color}
+											onChange={(e) => setColor(e.target.value as Point["iconColor"])}
+										>
+											<option value="red">Red</option>
+											<option value="yellow">Yellow</option>
+											<option value="orange">Orange</option>
+											<option value="green">Green</option>
+											<option value="blue">Blue</option>
+											<option value="purple">Purple</option>
+											<option value="black">Black</option>
+											<option value="grey">Grey</option>
+											<option value="white">White</option>
+										</select>
+									</div>
 								</div>
-								<div className="flex flex-row">
-									<select
-										className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-2 mr-1 px-2 w-1/2"
-										value={icon}
-										onChange={(e) => setIcon(e.target.value as Point["icon"])}
-									>
-										<option value="indoor-athletics">Indoor</option>
-										<option value="outdoor-athletics">Outdoor</option>
-										<option value="road-running">Road Running</option>
-										<option value="cross-country">Cross Country</option>
-										<option value="trail-running">Trail Running</option>
-										<option value="combined-events">Combined Events</option>
-										<option value="race-walking">Race Walking</option>
-										<option value="diamond-league">Diamond League</option>
-									</select>
-									<select
-										className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-1 mr-2 px-2 w-1/2"
-										value={color}
-										onChange={(e) => setColor(e.target.value as Point["iconColor"])}
-									>
-										<option value="red">Red</option>
-										<option value="yellow">Yellow</option>
-										<option value="orange">Orange</option>
-										<option value="green">Green</option>
-										<option value="blue">Blue</option>
-										<option value="purple">Purple</option>
-										<option value="black">Black</option>
-										<option value="grey">Grey</option>
-										<option value="white">White</option>
-									</select>
-								</div>
+								<button
+									className="border border-[#f0f0f0] rounded-md mt-2 mb-2 mr-2 px-2"
+									onClick={() => addPoint()}
+								>
+									Add
+								</button>
 							</div>
-							<button
-								className="border border-[#f0f0f0] rounded-md mt-2 mb-2 mr-2 px-2"
-								onClick={() => addPoint()}
-							>
-								Add
-							</button>
-						</div>
+						) : null}
 					</div>
 				) : (
 					<Chat

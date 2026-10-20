@@ -56,7 +56,13 @@ async function iconUrl(name: string, color: Point["iconColor"]): Promise<string>
 	return url;
 }
 
-export default function MapView({ points }: { points: Point[] }) {
+export default function MapView({
+	points,
+	fullScreen,
+}: {
+	points: Point[];
+	fullScreen?: boolean;
+}) {
 	const ref = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<any>(null);
 	const overlaysRef = useRef<any[]>([]);
@@ -126,5 +132,7 @@ export default function MapView({ points }: { points: Point[] }) {
 		};
 	}, [points]);
 
-	return <div ref={ref} className="ml-auto w-3/4 h-screen" />;
+	return (
+		<div ref={ref} className={`ml-auto ${fullScreen ? "w-full" : "w-3/4"} h-screen`} />
+	);
 }

@@ -5,11 +5,13 @@ import {
 	createUIMessageStreamResponse,
 	toUIMessageStream,
 	tool,
+	isStepCount,
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import z from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { geoLookup } from "@/utils/geoLookup";
 
 export async function POST(req: Request) {
 	const { isAuthenticated } = await auth();
@@ -32,7 +34,7 @@ export async function POST(req: Request) {
 
 	const result = streamText({
 		model: openai("gpt-6-luna"),
-		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${new Date().toLocaleDateString("en-NZ")}. Use listEvents to find event ids before editing or deleting. Do not use markdown in your responses.`,
+		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${new Date().toLocaleDateString("en-NZ")}. Use listEvents to find event ids before editing or deleting. Use gpsLookup to get coordinates for an address or place before adding or moving an event there. Do not use markdown in your responses.`,
 		tools: {
 			addEvent: tool({
 				description: "Add a event to the calendar",
@@ -70,12 +72,31 @@ export async function POST(req: Request) {
 				inputSchema: z.object({}),
 			}),
 			gpsLookup: tool({
-				description: "Look Up The Latitude and Longitude of an address",
+				description:
+					"Look up the latitude and longitude of an address or place name using OpenStreetMap. Returns up to 3 candidate matches.",
 				inputSchema: z.object({
-					address: z.string().describe("The address to look up"),
+					rawAddress: z.string().describe("The full address or place name as written"),
+					streetNumber: z.string().optional().describe("The street number"),
+					streetName: z.string().optional().describe("The street name"),
+					streetType: z.string().optional().describe("The street type, e.g. Road, Street"),
+					suburb: z.string().optional().describe("The suburb"),
+					city: z.string().optional().describe("The city or town"),
+					state: z.string().optional().describe("The state or region"),
+					postcode: z.string().optional().describe("The postcode"),
+					country: z.string().optional().describe("The country"),
 				}),
+				execute: async (input) => {
+					try {
+						const results = await geoLookup(input);
+						return results.length > 0 ? results : `No location found for "${input.rawAddress}"`;
+					} catch (err) {
+						return `Lookup failed: ${err instanceof Error ? err.message : String(err)}`;
+					}
+				},
 			}),
 		},
+		// Lets the model continue after server-side tools (gpsLookup); client-side tools still end the step
+		stopWhen: isStepCount(5),
 		messages: await convertToModelMessages(messages),
 	});
 
