@@ -43,11 +43,11 @@ export default function Chat({
 	}
 
 	return (
-		<div className="flex flex-col w-full max-w-md mx-auto">
+		<div className="flex flex-col w-full max-w-md mx-auto mt-8 mb-20">
 			{messages.map((message) => (
 				<div
 					key={message.id}
-					className={`whitespace-pre-wrap ${message.role === "user" ? "bg-panel-raised" : "bg-panel"} rounded-md px-2`}
+					className={`whitespace-pre-wrap ${message.role === "user" ? "bg-panel-raised" : "bg-panel"} rounded-md px-2 max-w-full overflow-y-auto`}
 				>
 					{message.parts.map((part, i) => {
 						if (part.type === "text") {
@@ -55,10 +55,13 @@ export default function Chat({
 						}
 						if (isToolUIPart(part)) {
 							const output =
-								typeof part.output === "string" ? part.output : JSON.stringify(part.output);
+								typeof part.output === "string"
+									? part.output
+									: JSON.stringify(part.output);
 							return (
 								<div key={`${message.id}-${i}`} className="text-xs text-muted">
-									{getToolName(part)}: {part.state === "output-available" ? output : part.state}
+									{getToolName(part)}:{" "}
+									{part.state === "output-available" ? output : part.state}
 								</div>
 							);
 						}
