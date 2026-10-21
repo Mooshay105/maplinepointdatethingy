@@ -22,10 +22,18 @@ export function ensureSchema() {
 				date INTEGER NOT NULL,
 				icon TEXT NOT NULL,
 				icon_color TEXT NOT NULL,
-				visable INTEGER NOT NULL DEFAULT 1
+				visable INTEGER NOT NULL DEFAULT 1,
+				description TEXT NOT NULL DEFAULT ''
 			)`,
 		)
 		.then(() => db.execute("CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id)"))
+		// Tables created before descriptions existed are missing the column
+		.then(() => db.execute("PRAGMA table_info(events)"))
+		.then((rs) => {
+			if (!rs.rows.some((r) => r.name === "description")) {
+				return db.execute("ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+			}
+		})
 		.catch((err) => {
 			schemaReady = null;
 			throw err;
@@ -60,6 +68,7 @@ const iconColors = [
 export const eventSchema = z.object({
 	id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
 	name: z.string(),
+	description: z.string(),
 	lat: z.number(),
 	lng: z.number(),
 	date: z.number(),
@@ -76,6 +85,7 @@ export function rowToEvent(row: Row): z.infer<typeof eventSchema> {
 	return {
 		id: Number(row.id),
 		name: String(row.name),
+		description: String(row.description ?? ""),
 		lat: Number(row.lat),
 		lng: Number(row.lng),
 		date: Number(row.date),
@@ -88,6 +98,7 @@ export function rowToEvent(row: Row): z.infer<typeof eventSchema> {
 /** Maps EventChanges keys to their column names. */
 export const columns: Record<keyof EventChanges, string> = {
 	name: "name",
+	description: "description",
 	lat: "lat",
 	lng: "lng",
 	date: "date",

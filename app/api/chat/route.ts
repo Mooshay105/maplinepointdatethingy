@@ -40,6 +40,7 @@ export async function POST(req: Request) {
 				description: "Add a event to the calendar",
 				inputSchema: z.object({
 					title: z.string().describe("The title of the event"),
+					description: z.string().optional().describe("A description of the event"),
 					date: z.string().describe("The date of the event, in DD/MM/YYYY format"),
 					latitude: z.number().describe("The latitude of the event"),
 					longitude: z.number().describe("The longitude of the event"),
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
 				inputSchema: z.object({
 					id: z.number().describe("The id for the event"),
 					title: z.string().optional().describe("The title of the event"),
+					description: z.string().optional().describe("A description of the event"),
 					date: z
 						.string()
 						.optional()

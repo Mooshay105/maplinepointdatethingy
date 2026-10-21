@@ -15,24 +15,8 @@ import {
 	flushAllUpdates,
 	updateEvent,
 } from "@/utils/eventsSync";
-
-/**
- * Parses "DD/MM/YYYY" (en-NZ format). Returns null if invalid.
- * @param input The date string to parse.
- * @returns The parsed date, or null if the input is invalid.
- */
-export function parseNzDate(input: string): Date | null {
-	const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(input.trim());
-	if (!match) return null;
-
-	const day = Number(match[1]);
-	const month = Number(match[2]) - 1;
-	const year = Number(match[3]);
-
-	const d = new Date(year, month, day);
-	if (d.getDate() !== day || d.getMonth() !== month) return null;
-	return d;
-}
+import { parseNzDate } from "@/utils/dates";
+import EventEditor, { COLOR_OPTIONS, ICON_OPTIONS } from "../db/components/EventEditor";
 
 export default function Home() {
 	const [name, setName] = useState("");
@@ -41,7 +25,6 @@ export default function Home() {
 	const [lng, setLng] = useState("");
 	const [icon, setIcon] = useState<Point["icon"]>("indoor-athletics");
 	const [color, setColor] = useState<Point["iconColor"]>("red");
-	const [drafts, setDrafts] = useState<Record<string, string>>({});
 	const [points, setPoints] = useState<Point[]>([]);
 	const [filteredPoints, setFilteredPoints] = useState<Point[]>([]);
 	const [loaded, setLoaded] = useState(false);
@@ -84,6 +67,7 @@ export default function Home() {
 			const stored = localStorage.getItem("points");
 			if (stored) {
 				const legacy: Point[] = JSON.parse(stored).map((p: any) => ({
+					description: "",
 					...p,
 					date: new Date(p.date),
 				}));
@@ -125,18 +109,6 @@ export default function Home() {
 		updateEvent(id, changes);
 	}
 
-	function setDraft(key: string, value: string) {
-		setDrafts((prev) => ({ ...prev, [key]: value }));
-	}
-
-	function clearDraft(key: string) {
-		setDrafts((prev) => {
-			const next = { ...prev };
-			delete next[key];
-			return next;
-		});
-	}
-
 	function deletePoint(id: number) {
 		setPoints((prev) => prev.filter((p) => p.id !== id));
 		deleteEvent(id);
@@ -153,6 +125,7 @@ export default function Home() {
 		lng: number,
 		icon: Point["icon"],
 		color: Point["iconColor"],
+		description = "",
 	): Point | null {
 		const parsedDate = dateStr.trim() === "" ? new Date() : parseNzDate(dateStr);
 		if (!parsedDate) return null;
@@ -160,6 +133,7 @@ export default function Home() {
 		const point: Point = {
 			id: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
 			name,
+			description,
 			lat,
 			lng,
 			date: parsedDate,
@@ -224,6 +198,7 @@ export default function Home() {
 					input.longitude,
 					input.icon,
 					input.iconColor,
+					input.description,
 				);
 				respond(
 					point
@@ -237,6 +212,7 @@ export default function Home() {
 				}
 				const changes: Partial<Point> = {};
 				if (input.title !== undefined) changes.name = input.title;
+				if (input.description !== undefined) changes.description = input.description;
 				if (input.latitude !== undefined) changes.lat = input.latitude;
 				if (input.longitude !== undefined) changes.lng = input.longitude;
 				if (input.date !== undefined) {
@@ -260,6 +236,7 @@ export default function Home() {
 				const events = pointsRef.current.map((p) => ({
 					id: p.id,
 					title: p.name,
+					description: p.description,
 					date: p.date.toLocaleDateString("en-NZ"),
 					latitude: p.lat,
 					longitude: p.lng,
@@ -384,7 +361,12 @@ export default function Home() {
 					</div>
 				</Show>
 			</div>
-			<MapView points={filteredPoints} />
+			<MapView
+				points={filteredPoints}
+				alwaysShowHoverMenus={settings.alwaysShowHoverMenus === "true"}
+				onUpdate={updatePoint}
+				onDelete={deletePoint}
+			/>
 			<div className="fixed top-0 left-0 h-full w-1/4 bg-[#0f0f0f] border-r border-[#f0f0f0] text-white p-2 overflow-y-auto">
 				<div className="fixed top-0 left-0 w-1/4 px-2 flex flex-row justify-between border-b border-r border-[#f0f0f0] bg-[#0f0f0f]">
 					<div
@@ -412,142 +394,13 @@ export default function Home() {
 							) : loaded ? (
 								<>
 									{points.map((p) => (
-										<div key={p.id} className="border border-[#f0f0f0] rounded-xl m-2">
-											<div className="flex flex-row">
-												<input
-													className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-													value={p.name}
-													onChange={(e) => updatePoint(p.id, { name: e.target.value })}
-													placeholder="Name"
-												/>
-												<input
-													className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-													value={
-														drafts[`${p.id}-date`] ?? p.date.toLocaleDateString("en-NZ")
-													}
-													onChange={(e) => setDraft(`${p.id}-date`, e.target.value)}
-													onBlur={() => {
-														const parsed = parseNzDate(drafts[`${p.id}-date`] ?? "");
-														if (parsed) {
-															updatePoint(p.id, { date: parsed });
-															clearDraft(`${p.id}-date`);
-														}
-													}}
-													placeholder="Date (DD/MM/YYYY)"
-												/>
-												<button
-													className="border border-[#f0f0f0] rounded-md mt-2 mr-2 px-2"
-													onClick={() => {
-														updatePoint(p.id, { visable: !p.visable });
-													}}
-												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														width="28"
-														height="28"
-														viewBox="0 0 64 64"
-														fill="none"
-														stroke="#f0f0f0"
-														strokeWidth="2"
-														strokeLinecap="round"
-														strokeLinejoin="round"
-													>
-														<path d="M8 32 Q32 12 56 32 Q32 52 8 32 Z" />
-														<circle cx="32" cy="32" r="8" />
-														{!p.visable ? <line x1="12" y1="12" x2="52" y2="52" /> : null}
-													</svg>
-												</button>
-											</div>
-											<div className="flex flex-row">
-												<input
-													className="border border-[#f0f0f0] rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-													value={drafts[`${p.id}-lat`] ?? p.lat}
-													onChange={(e) => {
-														const value = e.target.value;
-														setDraft(`${p.id}-lat`, value);
-														const n = Number(value);
-														if (value.trim() !== "" && Number.isFinite(n)) {
-															updatePoint(p.id, { lat: n });
-														}
-													}}
-													placeholder="Latitude"
-												/>
-												<input
-													className="border border-[#f0f0f0] rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-													value={drafts[`${p.id}-lng`] ?? p.lng}
-													onChange={(e) => {
-														const value = e.target.value;
-														setDraft(`${p.id}-lng`, value);
-														const n = Number(value);
-														if (value.trim() !== "" && Number.isFinite(n)) {
-															updatePoint(p.id, { lng: n });
-														}
-													}}
-													placeholder="Longitude"
-												/>
-												<button
-													className="border border-[#f0f0f0] rounded-md mt-2 mr-2 px-2"
-													onClick={() => {
-														deletePoint(p.id);
-													}}
-												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														width="28"
-														height="28"
-														viewBox="0 0 64 64"
-														fill="none"
-														stroke="#f0f0f0"
-														strokeWidth="2"
-														strokeLinecap="round"
-														strokeLinejoin="round"
-													>
-														<line x1="12" y1="18" x2="52" y2="18" />
-														<path d="M26 18 V13 H38 V18" />
-														<path d="M17 18 L20 56 H44 L47 18" />
-														<line x1="28" y1="27" x2="28" y2="47" />
-														<line x1="36" y1="27" x2="36" y2="47" />
-													</svg>
-												</button>
-											</div>
-											<div className="flex flex-row">
-												<select
-													className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-2 mr-1 px-2 w-1/2"
-													value={p.icon}
-													onChange={(e) =>
-														updatePoint(p.id, { icon: e.target.value as Point["icon"] })
-													}
-												>
-													<option value="indoor-athletics">Indoor</option>
-													<option value="outdoor-athletics">Outdoor</option>
-													<option value="road-running">Road Running</option>
-													<option value="cross-country">Cross Country</option>
-													<option value="trail-running">Trail Running</option>
-													<option value="combined-events">Combined Events</option>
-													<option value="race-walking">Race Walking</option>
-													<option value="diamond-league">Diamond League</option>
-												</select>
-												<select
-													className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-1 mr-2 px-2 w-1/2"
-													value={p.iconColor}
-													onChange={(e) =>
-														updatePoint(p.id, {
-															iconColor: e.target.value as Point["iconColor"],
-														})
-													}
-												>
-													<option value="red">Red</option>
-													<option value="yellow">Yellow</option>
-													<option value="orange">Orange</option>
-													<option value="green">Green</option>
-													<option value="blue">Blue</option>
-													<option value="purple">Purple</option>
-													<option value="black">Black</option>
-													<option value="grey">Grey</option>
-													<option value="white">White</option>
-												</select>
-											</div>
-										</div>
+										<EventEditor
+											key={p.id}
+											point={p}
+											onUpdate={updatePoint}
+											onDelete={deletePoint}
+											className="border border-[#f0f0f0] rounded-xl m-2"
+										/>
 									))}
 								</>
 							) : (
@@ -604,29 +457,22 @@ export default function Home() {
 											value={icon}
 											onChange={(e) => setIcon(e.target.value as Point["icon"])}
 										>
-											<option value="indoor-athletics">Indoor</option>
-											<option value="outdoor-athletics">Outdoor</option>
-											<option value="road-running">Road Running</option>
-											<option value="cross-country">Cross Country</option>
-											<option value="trail-running">Trail Running</option>
-											<option value="combined-events">Combined Events</option>
-											<option value="race-walking">Race Walking</option>
-											<option value="diamond-league">Diamond League</option>
+											{ICON_OPTIONS.map((o) => (
+												<option key={o.value} value={o.value}>
+													{o.label}
+												</option>
+											))}
 										</select>
 										<select
 											className="border border-[#f0f0f0] rounded-md mt-2 mb-2 ml-1 mr-2 px-2 w-1/2"
 											value={color}
 											onChange={(e) => setColor(e.target.value as Point["iconColor"])}
 										>
-											<option value="red">Red</option>
-											<option value="yellow">Yellow</option>
-											<option value="orange">Orange</option>
-											<option value="green">Green</option>
-											<option value="blue">Blue</option>
-											<option value="purple">Purple</option>
-											<option value="black">Black</option>
-											<option value="grey">Grey</option>
-											<option value="white">White</option>
+											{COLOR_OPTIONS.map((o) => (
+												<option key={o.value} value={o.value}>
+													{o.label}
+												</option>
+											))}
 										</select>
 									</div>
 								</div>

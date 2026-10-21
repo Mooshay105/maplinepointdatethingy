@@ -11,7 +11,11 @@ CREATE TABLE IF NOT EXISTS events (
 	date INTEGER NOT NULL,            -- epoch milliseconds
 	icon TEXT NOT NULL,
 	icon_color TEXT NOT NULL,
-	visable INTEGER NOT NULL DEFAULT 1 -- 0 or 1
+	visable INTEGER NOT NULL DEFAULT 1, -- 0 or 1
+	description TEXT NOT NULL DEFAULT ''
 );
+
+-- For databases created before descriptions existed:
+-- ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id);
