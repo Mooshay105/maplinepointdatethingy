@@ -5,6 +5,16 @@ import { Point } from "@/utils/types";
 import { Suspense, use, useEffect, useState } from "react";
 
 export default function SharePage({ params }: { params: Promise<{ userId: string }> }) {
+	return (
+		<main>
+			<Suspense>
+				<SharedMap params={params} />
+			</Suspense>
+		</main>
+	);
+}
+
+function SharedMap({ params }: { params: Promise<{ userId: string }> }) {
 	const { userId } = use(params);
 	const [points, setPoints] = useState<Point[]>([]);
 
@@ -22,6 +32,7 @@ export default function SharePage({ params }: { params: Promise<{ userId: string
 				const points: Point[] = r.map((e: any) => ({
 					id: e.id,
 					name: e.name,
+					description: e.description ?? "",
 					date: new Date(e.date),
 					icon: e.icon,
 					iconColor: e.iconColor,
@@ -36,10 +47,8 @@ export default function SharePage({ params }: { params: Promise<{ userId: string
 	}, [userId]);
 
 	return (
-		<main>
-			<Suspense>
-				<MapView points={points} fullScreen={true} />
-			</Suspense>
-		</main>
+		<Suspense>
+			<MapView points={points} fullScreen={true} />
+		</Suspense>
 	);
 }
