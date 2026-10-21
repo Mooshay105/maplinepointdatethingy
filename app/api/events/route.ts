@@ -1,16 +1,22 @@
 import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import z from "zod";
 import { db, ensureSchema, eventSchema, rowToEvent } from "@/utils/db";
 
-export async function GET(req: Request) {
-	const { userId } = await auth();
-	if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+/**
+ * Lists the signed-in user's events, or any user's with ?userId=... (used by the share page).
+ * Shared maps are public on purpose: anyone with the link can view them without signing in,
+ * so the user id in the link is the only thing keeping a map private. Only reading is public;
+ * creating, editing and deleting still need you to be signed in as the owner.
+ */
+export async function GET(req: NextRequest) {
+	const ownerId = req.nextUrl.searchParams.get("userId") || (await auth()).userId;
+	if (!ownerId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
 	await ensureSchema();
 	const rs = await db.execute({
 		sql: "SELECT * FROM events WHERE user_id = ? ORDER BY date",
-		args: [req.headers.get("searchingUserId")! || userId],
+		args: [ownerId],
 	});
 	return NextResponse.json(rs.rows.map(rowToEvent));
 }
@@ -29,7 +35,7 @@ export async function POST(req: Request) {
 	await ensureSchema();
 	await db.batch(
 		events.map((e) => ({
-			sql: `INSERT OR IGNORE INTO events (id, user_id, name, description, lat, lng, date, icon, icon_color, visable)
+			sql: `INSERT OR IGNORE INTO events (id, user_id, name, description, lat, lng, date, icon, icon_color, visible)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			args: [
 				e.id,
@@ -41,7 +47,7 @@ export async function POST(req: Request) {
 				e.date,
 				e.icon,
 				e.iconColor,
-				e.visable ? 1 : 0,
+				e.visible ? 1 : 0,
 			],
 		})),
 		"write",

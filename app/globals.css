@@ -1,26 +1,28 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * The site's colours. Each `--color-<name>` here becomes Tailwind classes like `bg-<name>`,
+ * `text-<name>` and `border-<name>`, so changing a value here changes it everywhere it's used.
+ * Prefer these over one-off colours like `bg-[#0f0f0f]`.
+ * (Map marker and route colours are set in JavaScript for Google Maps, see components/MapView.tsx.)
+ */
+@theme {
+  /* The dark panels: sidebar, header, hover menus */
+  --color-panel: #0f0f0f;
+  --color-panel-raised: #1f1f1f; /* Something sitting on a panel, e.g. your chat messages */
+  --color-panel-foreground: #ffffff; /* Text on a panel */
+  --color-line: #f0f0f0; /* Borders and dividers on a panel */
+  --color-muted: #a1a1aa; /* Secondary text on a panel */
+  --color-danger: #f87171; /* Error messages */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* The Settings page inside Clerk's light profile popup, matched to Clerk's own styling */
+  --color-modal-line: #ededed;
+  --color-modal-input: #d9d9d9;
+  --color-modal-muted: #747686;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-panel);
+  color: var(--color-panel-foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

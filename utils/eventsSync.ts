@@ -1,8 +1,8 @@
-import { Point } from "./types";
+import { MapEvent } from "./types";
 
 // Client-side sync with /api/events. The UI updates its local state first, then calls these to persist in the background.
 
-type WireEvent = Omit<Point, "date"> & { date: number };
+type WireEvent = Omit<MapEvent, "date"> & { date: number };
 
 const UPDATE_DEBOUNCE_MS = 400;
 
@@ -24,8 +24,8 @@ function enqueue(id: number, label: string, request: () => Promise<Response>) {
 	});
 }
 
-function toWire(point: Point): WireEvent {
-	return { ...point, date: point.date.getTime() };
+function toWire(event: MapEvent): WireEvent {
+	return { ...event, date: event.date.getTime() };
 }
 
 function sendJson(url: string, method: string, body: unknown, keepalive = false) {
@@ -37,25 +37,27 @@ function sendJson(url: string, method: string, body: unknown, keepalive = false)
 	});
 }
 
-export async function fetchEvents(): Promise<Point[]> {
-	const res = await fetch("/api/events", { cache: "no-store" });
+/** Loads the signed-in user's events, or another user's when given their id (for the share page). */
+export async function fetchEvents(userId?: string): Promise<MapEvent[]> {
+	const url = userId ? `/api/events?userId=${encodeURIComponent(userId)}` : "/api/events";
+	const res = await fetch(url, { cache: "no-store" });
 	if (!res.ok) throw new Error(`Failed to load events: ${res.status}`);
 	const events: WireEvent[] = await res.json();
 	return events.map((e) => ({ ...e, date: new Date(e.date) }));
 }
 
-export function createEvent(point: Point) {
-	enqueue(point.id, "create", () => sendJson("/api/events", "POST", toWire(point), true));
+export function createEvent(event: MapEvent) {
+	enqueue(event.id, "create", () => sendJson("/api/events", "POST", toWire(event), true));
 }
 
 /** Uploads several events in one request (used to migrate old localStorage data). */
-export async function createEvents(points: Point[]) {
-	const res = await sendJson("/api/events", "POST", points.map(toWire));
+export async function createEvents(events: MapEvent[]) {
+	const res = await sendJson("/api/events", "POST", events.map(toWire));
 	if (!res.ok) throw new Error(`Failed to upload events: ${res.status}`);
 }
 
 /** Merges changes into a pending update that's sent once edits to this event pause, so typing doesn't fire a request per key. */
-export function updateEvent(id: number, changes: Partial<Point>) {
+export function updateEvent(id: number, changes: Partial<MapEvent>) {
 	const wire: Record<string, unknown> = { ...changes };
 	if (changes.date) wire.date = changes.date.getTime();
 	pendingChanges.set(id, { ...pendingChanges.get(id), ...wire });

@@ -12,6 +12,8 @@ import z from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { geoLookup } from "@/utils/geoLookup";
+import { addEventInput, deleteEventInput, editEventInput } from "@/utils/chatTools";
+import { formatNzDate } from "@/utils/dates";
 
 export async function POST(req: Request) {
 	const { isAuthenticated } = await auth();
@@ -34,46 +36,25 @@ export async function POST(req: Request) {
 
 	const result = streamText({
 		model: openai("gpt-6-luna"),
-		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${new Date().toLocaleDateString("en-NZ")}. Use listEvents to find event ids before editing or deleting. Use gpsLookup to get coordinates for an address or place before adding or moving an event there. Do not use markdown in your responses.`,
+		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${formatNzDate(new Date())}. Use listEvents to find event ids before editing or deleting. Use geoLookup to get coordinates for an address or place before adding or moving an event there. Do not use markdown in your responses.`,
 		tools: {
 			addEvent: tool({
-				description: "Add a event to the calendar",
-				inputSchema: z.object({
-					title: z.string().describe("The title of the event"),
-					description: z.string().optional().describe("A description of the event"),
-					date: z.string().describe("The date of the event, in DD/MM/YYYY format"),
-					latitude: z.number().describe("The latitude of the event"),
-					longitude: z.number().describe("The longitude of the event"),
-					icon: z.string().optional().describe("The icon to use for the event"),
-					iconColor: z.string().optional().describe("The color to use for the event"),
-				}),
+				description: "Add an event to the calendar",
+				inputSchema: addEventInput,
 			}),
 			editEvent: tool({
-				description:
-					"Edit an event in the calendar. Only the provided fields are changed.",
-				inputSchema: z.object({
-					id: z.number().describe("The id for the event"),
-					title: z.string().optional().describe("The title of the event"),
-					description: z.string().optional().describe("A description of the event"),
-					date: z
-						.string()
-						.optional()
-						.describe("The date of the event, in DD/MM/YYYY format"),
-					latitude: z.number().optional().describe("The latitude of the event"),
-					longitude: z.number().optional().describe("The longitude of the event"),
-				}),
+				description: "Edit an event in the calendar. Only the provided fields are changed.",
+				inputSchema: editEventInput,
 			}),
 			deleteEvent: tool({
-				description: "Delete an event in the calendar",
-				inputSchema: z.object({
-					id: z.number().describe("The id for the event"),
-				}),
+				description: "Delete an event from the calendar",
+				inputSchema: deleteEventInput,
 			}),
 			listEvents: tool({
 				description: "List all events in the calendar, including their ids",
 				inputSchema: z.object({}),
 			}),
-			gpsLookup: tool({
+			geoLookup: tool({
 				description:
 					"Look up the latitude and longitude of an address or place name using OpenStreetMap. Returns up to 3 candidate matches.",
 				inputSchema: z.object({
@@ -97,7 +78,7 @@ export async function POST(req: Request) {
 				},
 			}),
 		},
-		// Lets the model continue after server-side tools (gpsLookup); client-side tools still end the step
+		// Lets the model continue after server-side tools (geoLookup); client-side tools still end the step
 		stopWhen: isStepCount(5),
 		messages: await convertToModelMessages(messages),
 	});

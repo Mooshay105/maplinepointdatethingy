@@ -1,11 +1,17 @@
 "use client";
 
+// Google Maps is loaded from a script tag, so it has no TypeScript types here and is typed as `any`.
+// Installing @types/google.maps would let us replace these.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Point } from "../../utils/types";
+import { EventColor, EventIcon, MapEvent } from "@/utils/types";
 import EventEditor from "./EventEditor";
 
-const API_KEY = "AIzaSyA1sD6rmLPNBxuZuG0l9xHiYwdN8sl7nzY";
+// Maps JavaScript API keys are public by design (they end up in the browser); restrict them by
+// HTTP referrer in the Google Cloud console instead of keeping them secret.
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 let mapsPromise: Promise<any> | null = null;
 
@@ -17,7 +23,7 @@ function loadGoogleMaps(): Promise<any> {
 			return resolve((window as any).google);
 		}
 		const script = document.createElement("script");
-		script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}`;
+		script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
 		script.async = true;
 		script.onload = () => resolve((window as any).google);
 		script.onerror = () => {
@@ -30,29 +36,35 @@ function loadGoogleMaps(): Promise<any> {
 	return mapsPromise;
 }
 
+/** The disc colour, and a glyph colour that stays readable on top of it. */
+const MARKER_COLORS: Record<EventColor, { disc: string; glyph: string }> = {
+	red: { disc: "#fc413d", glyph: "#ffffff" },
+	orange: { disc: "#e65100", glyph: "#ffffff" },
+	yellow: { disc: "#ffea00", glyph: "#0f0f0f" },
+	green: { disc: "#097138", glyph: "#ffffff" },
+	blue: { disc: "#1a237e", glyph: "#ffffff" },
+	purple: { disc: "#9c27b0", glyph: "#ffffff" },
+	black: { disc: "#0f0f0f", glyph: "#ffffff" },
+	grey: { disc: "#707070", glyph: "#ffffff" },
+	white: { disc: "#f0f0f0", glyph: "#0f0f0f" },
+};
+
 const urlCache = new Map<string, string>();
 
-async function iconUrl(name: string, color: Point["iconColor"]): Promise<string> {
-	const key = `${name}|${color}`;
+/**
+ * Loads /public/icons/<icon>.svg and recolours it as a data URL for a map marker.
+ * The files draw the disc in #707070 and the glyph in #ffffff, which are swapped for the marker's colours.
+ */
+async function iconUrl(icon: EventIcon, color: EventColor): Promise<string> {
+	const key = `${icon}|${color}`;
 	const hit = urlCache.get(key);
 	if (hit) return hit;
 
-	const colorTable = {
-		red: "#fc413d",
-		orange: "#e65100",
-		yellow: "#ffea00",
-		green: "#097138",
-		blue: "#1a237e",
-		purple: "#9c27b0",
-		black: "#0f0f0f",
-		grey: "#707070",
-		white: "#f0f0f0",
-	};
-
-	const svg = await (await fetch(`/icons/${name}.svg`)).text();
+	const { disc, glyph } = MARKER_COLORS[color];
+	const svg = await (await fetch(`/icons/${icon}.svg`)).text();
 	const url =
 		"data:image/svg+xml;charset=UTF-8," +
-		encodeURIComponent(svg.replaceAll("#707070", colorTable[color]));
+		encodeURIComponent(svg.replaceAll("#707070", disc).replaceAll("#ffffff", glyph));
 
 	urlCache.set(key, url);
 	return url;
@@ -62,16 +74,16 @@ async function iconUrl(name: string, color: Point["iconColor"]): Promise<string>
 const HOVER_HIDE_DELAY_MS = 250;
 
 export default function MapView({
-	points,
+	events,
 	fullScreen,
 	alwaysShowHoverMenus = false,
 	onUpdate,
 	onDelete,
 }: {
-	points: Point[];
+	events: MapEvent[];
 	fullScreen?: boolean;
 	alwaysShowHoverMenus?: boolean;
-	onUpdate?: (id: number, changes: Partial<Point>) => void;
+	onUpdate?: (id: number, changes: Partial<MapEvent>) => void;
 	onDelete?: (id: number) => void;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -107,6 +119,8 @@ export default function MapView({
 					zoom: 2,
 					disableDefaultUI: true,
 				});
+				// Touch screens have no hover, so tapping the map closes an open menu (and tapping a marker opens one, below)
+				mapRef.current.addListener("click", () => setHoveredId(null));
 				setMap(mapRef.current);
 			}
 			const map = mapRef.current;
@@ -114,13 +128,13 @@ export default function MapView({
 			overlaysRef.current.forEach((o) => o.setMap(null));
 			overlaysRef.current = [];
 
-			points.forEach(async (p) => {
-				const url = await iconUrl(p.icon ?? "outdoor-athletics", p.iconColor ?? "grey");
-				// Points changed while the icon loaded; the newer run draws this marker instead
+			events.forEach(async (event) => {
+				const url = await iconUrl(event.icon, event.iconColor);
+				// Events changed while the icon loaded; the newer run draws this marker instead
 				if (cancelled) return;
 
 				const marker = new google.maps.Marker({
-					position: { lat: p.lat, lng: p.lng },
+					position: { lat: event.lat, lng: event.lng },
 					map,
 					icon: {
 						url,
@@ -128,14 +142,15 @@ export default function MapView({
 						anchor: new google.maps.Point(10, 10),
 					},
 				});
-				marker.addListener("mouseover", () => showMenu(p.id));
+				marker.addListener("mouseover", () => showMenu(event.id));
 				marker.addListener("mouseout", hideMenuSoon);
+				marker.addListener("click", () => showMenu(event.id));
 				overlaysRef.current.push(marker);
 			});
 
 			overlaysRef.current.push(
 				new google.maps.Polyline({
-					path: points.map((p) => ({ lat: p.lat, lng: p.lng })),
+					path: events.map((event) => ({ lat: event.lat, lng: event.lng })),
 					geodesic: true,
 					strokeColor: "#FF0000",
 					strokeOpacity: 1,
@@ -161,42 +176,42 @@ export default function MapView({
 		return () => {
 			cancelled = true;
 		};
-	}, [points]);
+	}, [events]);
 
-	const menuPoints = points.filter(
-		(p) => alwaysShowHoverMenus || p.id === hoveredId || p.id === focusedId,
+	const menuEvents = events.filter(
+		(event) => alwaysShowHoverMenus || event.id === hoveredId || event.id === focusedId,
 	);
 
 	return (
 		<>
-			<div ref={ref} className={`ml-auto ${fullScreen ? "w-full" : "w-3/4"} h-screen`} />
+			<div ref={ref} className={`ml-auto ${fullScreen ? "w-full" : "w-3/4"} h-dvh`} />
 			{map
-				? menuPoints.map((p) => (
+				? menuEvents.map((event) => (
 						<MapAnchor
-							key={p.id}
+							key={event.id}
 							map={map}
-							lat={p.lat}
-							lng={p.lng}
-							raised={p.id === hoveredId || p.id === focusedId}
+							lat={event.lat}
+							lng={event.lng}
+							raised={event.id === hoveredId || event.id === focusedId}
 						>
 							<div
 								className="absolute bottom-0 left-0 -translate-x-1/2 -translate-y-4 cursor-auto"
-								onMouseEnter={() => showMenu(p.id)}
+								onMouseEnter={() => showMenu(event.id)}
 								onMouseLeave={hideMenuSoon}
-								onFocus={() => setFocusedId(p.id)}
+								onFocus={() => setFocusedId(event.id)}
 								onBlur={(e) => {
 									if (!e.currentTarget.contains(e.relatedTarget)) {
-										setFocusedId((id) => (id === p.id ? null : id));
+										setFocusedId((id) => (id === event.id ? null : id));
 									}
 								}}
 							>
 								<EventEditor
-									point={p}
+									event={event}
 									onUpdate={onUpdate}
 									onDelete={onDelete}
-									className="w-72 bg-[#0f0f0f] border border-[#f0f0f0] rounded-xl text-white text-sm shadow-lg shadow-black/50"
+									className="w-72 bg-panel border border-line rounded-xl text-panel-foreground text-sm shadow-lg shadow-black/50"
 								/>
-								<div className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1.5 w-3 h-3 rotate-45 bg-[#0f0f0f] border-r border-b border-[#f0f0f0]" />
+								<div className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1.5 w-3 h-3 rotate-45 bg-panel border-r border-b border-line" />
 							</div>
 						</MapAnchor>
 					))
@@ -235,7 +250,7 @@ function MapAnchor({
 		const google = (window as any).google;
 
 		class Anchor extends google.maps.OverlayView {
-			// Set by the effect below, which also follows the point as it moves
+			// Set by the effect below, which also follows the event as it moves
 			position: any = null;
 
 			onAdd() {

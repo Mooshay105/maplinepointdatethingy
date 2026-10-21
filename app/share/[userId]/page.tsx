@@ -1,12 +1,14 @@
 "use client";
 
-import MapView from "@/db/components/MapView";
-import { Point } from "@/utils/types";
+import MapView from "@/components/MapView";
+import { MapEvent } from "@/utils/types";
+import { fetchEvents } from "@/utils/eventsSync";
 import { Suspense, use, useEffect, useState } from "react";
 
 export default function SharePage({ params }: { params: Promise<{ userId: string }> }) {
 	return (
 		<main>
+			{/* use(params) below suspends until the route params are ready */}
 			<Suspense>
 				<SharedMap params={params} />
 			</Suspense>
@@ -16,39 +18,13 @@ export default function SharePage({ params }: { params: Promise<{ userId: string
 
 function SharedMap({ params }: { params: Promise<{ userId: string }> }) {
 	const { userId } = use(params);
-	const [points, setPoints] = useState<Point[]>([]);
+	const [events, setEvents] = useState<MapEvent[]>([]);
 
 	useEffect(() => {
-		fetch(
-			new Request("/api/events", {
-				method: "GET",
-				headers: {
-					searchingUserId: userId,
-				},
-			}),
-		)
-			.then((r) => r.json())
-			.then((r) => {
-				const points: Point[] = r.map((e: any) => ({
-					id: e.id,
-					name: e.name,
-					description: e.description ?? "",
-					date: new Date(e.date),
-					icon: e.icon,
-					iconColor: e.iconColor,
-					lat: e.lat,
-					lng: e.lng,
-					visable: e.visable,
-				}));
-
-				setPoints(points);
-			})
+		fetchEvents(userId)
+			.then(setEvents)
 			.catch((err) => console.error("Failed to load events:", err));
 	}, [userId]);
 
-	return (
-		<Suspense>
-			<MapView points={points} fullScreen={true} />
-		</Suspense>
-	);
+	return <MapView events={events.filter((event) => event.visible)} fullScreen={true} />;
 }

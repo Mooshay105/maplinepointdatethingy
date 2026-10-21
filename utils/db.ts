@@ -1,70 +1,52 @@
 import { createClient, Row } from "@libsql/client";
 import z from "zod";
-import { Point } from "./types";
+import { EVENT_COLORS, EVENT_ICONS, EventColor, EventIcon } from "./types";
 
 export const db = createClient({
 	url: process.env.TURSO_DATABASE_URL!,
 	authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-let schemaReady: Promise<unknown> | null = null;
+let schemaReady: Promise<void> | null = null;
 
-/** Creates the events table on first use. */
+/** Creates (or upgrades) the events table on first use. Later calls reuse the same promise. */
 export function ensureSchema() {
-	schemaReady ??= db
-		.execute(
-			`CREATE TABLE IF NOT EXISTS events (
-				id INTEGER PRIMARY KEY,
-				user_id TEXT NOT NULL,
-				name TEXT NOT NULL,
-				lat REAL NOT NULL,
-				lng REAL NOT NULL,
-				date INTEGER NOT NULL,
-				icon TEXT NOT NULL,
-				icon_color TEXT NOT NULL,
-				visable INTEGER NOT NULL DEFAULT 1,
-				description TEXT NOT NULL DEFAULT ''
-			)`,
-		)
-		.then(() => db.execute("CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id)"))
-		// Tables created before descriptions existed are missing the column
-		.then(() => db.execute("PRAGMA table_info(events)"))
-		.then((rs) => {
-			if (!rs.rows.some((r) => r.name === "description")) {
-				return db.execute("ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT ''");
-			}
-		})
-		.catch((err) => {
-			schemaReady = null;
-			throw err;
-		});
+	schemaReady ??= createSchema().catch((err) => {
+		schemaReady = null; // Let the next request try again
+		throw err;
+	});
 	return schemaReady;
 }
 
-const icons = [
-	"indoor-athletics",
-	"outdoor-athletics",
-	"road-running",
-	"cross-country",
-	"trail-running",
-	"combined-events",
-	"race-walking",
-	"diamond-league",
-] as const satisfies readonly Point["icon"][];
+async function createSchema() {
+	await db.execute(
+		`CREATE TABLE IF NOT EXISTS events (
+			id INTEGER PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			lat REAL NOT NULL,
+			lng REAL NOT NULL,
+			date INTEGER NOT NULL,
+			icon TEXT NOT NULL,
+			icon_color TEXT NOT NULL,
+			visible INTEGER NOT NULL DEFAULT 1,
+			description TEXT NOT NULL DEFAULT ''
+		)`,
+	);
+	await db.execute("CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id)");
 
-const iconColors = [
-	"red",
-	"yellow",
-	"orange",
-	"green",
-	"blue",
-	"purple",
-	"black",
-	"grey",
-	"white",
-] as const satisfies readonly Point["iconColor"][];
+	// Upgrade tables created by older versions of the app
+	const tableInfo = await db.execute("PRAGMA table_info(events)");
+	const existingColumns = tableInfo.rows.map((r) => String(r.name));
+	if (!existingColumns.includes("description")) {
+		await db.execute("ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+	}
+	if (existingColumns.includes("visable")) {
+		await db.execute("ALTER TABLE events RENAME COLUMN visable TO visible");
+	}
+}
 
-/** Event as sent over the wire: same as Point, but the date is epoch milliseconds. */
+/** Event as sent over the wire: same as MapEvent, but the date is epoch milliseconds. */
 export const eventSchema = z.object({
 	id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
 	name: z.string(),
@@ -72,9 +54,9 @@ export const eventSchema = z.object({
 	lat: z.number(),
 	lng: z.number(),
 	date: z.number(),
-	icon: z.enum(icons),
-	iconColor: z.enum(iconColors),
-	visable: z.boolean(),
+	icon: z.enum(EVENT_ICONS),
+	iconColor: z.enum(EVENT_COLORS),
+	visible: z.boolean(),
 });
 
 export const eventChangesSchema = eventSchema.omit({ id: true }).partial();
@@ -89,9 +71,9 @@ export function rowToEvent(row: Row): z.infer<typeof eventSchema> {
 		lat: Number(row.lat),
 		lng: Number(row.lng),
 		date: Number(row.date),
-		icon: row.icon as Point["icon"],
-		iconColor: row.icon_color as Point["iconColor"],
-		visable: Boolean(row.visable),
+		icon: row.icon as EventIcon,
+		iconColor: row.icon_color as EventColor,
+		visible: Boolean(row.visible),
 	};
 }
 
@@ -104,5 +86,5 @@ export const columns: Record<keyof EventChanges, string> = {
 	date: "date",
 	icon: "icon",
 	iconColor: "icon_color",
-	visable: "visable",
+	visible: "visible",
 };

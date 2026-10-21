@@ -15,3 +15,8 @@ export function parseNzDate(input: string): Date | null {
 	if (d.getDate() !== day || d.getMonth() !== month) return null;
 	return d;
 }
+
+/** Formats a date as "DD/MM/YYYY", the format parseNzDate reads. */
+export function formatNzDate(date: Date): string {
+	return date.toLocaleDateString("en-NZ");
+}
