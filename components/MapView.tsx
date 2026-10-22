@@ -94,6 +94,13 @@ export default function MapView({
 	const [hoveredId, setHoveredId] = useState<number | null>(null);
 	// Keeps a menu open while one of its inputs has focus, even if the mouse wanders off
 	const [focusedId, setFocusedId] = useState<number | null>(null);
+	// The markers are rebuilt whenever events change, so read the latest handler through a ref
+	// instead of rebuilding them when only onUpdate changes
+	const onUpdateRef = useRef(onUpdate);
+	useEffect(() => {
+		onUpdateRef.current = onUpdate;
+	}, [onUpdate]);
+	const draggable = onUpdate !== undefined;
 
 	function showMenu(id: number) {
 		clearTimeout(hideTimer.current);
@@ -136,6 +143,8 @@ export default function MapView({
 				const marker = new google.maps.Marker({
 					position: { lat: event.lat, lng: event.lng },
 					map,
+					// Dragging moves the event; the address is left as typed
+					draggable,
 					icon: {
 						url,
 						scaledSize: new google.maps.Size(20, 20),
@@ -145,6 +154,14 @@ export default function MapView({
 				marker.addListener("mouseover", () => showMenu(event.id));
 				marker.addListener("mouseout", hideMenuSoon);
 				marker.addListener("click", () => showMenu(event.id));
+				// Hide the menu while dragging so it doesn't sit over the spot being dropped on
+				marker.addListener("dragstart", () => {
+					clearTimeout(hideTimer.current);
+					setHoveredId(null);
+				});
+				marker.addListener("dragend", (e: any) => {
+					onUpdateRef.current?.(event.id, { lat: e.latLng.lat(), lng: e.latLng.lng() });
+				});
 				overlaysRef.current.push(marker);
 			});
 
@@ -176,7 +193,7 @@ export default function MapView({
 		return () => {
 			cancelled = true;
 		};
-	}, [events]);
+	}, [events, draggable]);
 
 	const menuEvents = events.filter(
 		(event) => alwaysShowHoverMenus || event.id === hoveredId || event.id === focusedId,

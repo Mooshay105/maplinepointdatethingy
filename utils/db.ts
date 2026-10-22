@@ -30,7 +30,8 @@ async function createSchema() {
 			icon TEXT NOT NULL,
 			icon_color TEXT NOT NULL,
 			visible INTEGER NOT NULL DEFAULT 1,
-			description TEXT NOT NULL DEFAULT ''
+			description TEXT NOT NULL DEFAULT '',
+			address TEXT NOT NULL DEFAULT ''
 		)`,
 	);
 	await db.execute("CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id)");
@@ -40,6 +41,9 @@ async function createSchema() {
 	const existingColumns = tableInfo.rows.map((r) => String(r.name));
 	if (!existingColumns.includes("description")) {
 		await db.execute("ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+	}
+	if (!existingColumns.includes("address")) {
+		await db.execute("ALTER TABLE events ADD COLUMN address TEXT NOT NULL DEFAULT ''");
 	}
 	if (existingColumns.includes("visable")) {
 		await db.execute("ALTER TABLE events RENAME COLUMN visable TO visible");
@@ -51,6 +55,7 @@ export const eventSchema = z.object({
 	id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
 	name: z.string(),
 	description: z.string(),
+	address: z.string(),
 	lat: z.number(),
 	lng: z.number(),
 	date: z.number(),
@@ -68,6 +73,7 @@ export function rowToEvent(row: Row): z.infer<typeof eventSchema> {
 		id: Number(row.id),
 		name: String(row.name),
 		description: String(row.description ?? ""),
+		address: String(row.address ?? ""),
 		lat: Number(row.lat),
 		lng: Number(row.lng),
 		date: Number(row.date),
@@ -81,6 +87,7 @@ export function rowToEvent(row: Row): z.infer<typeof eventSchema> {
 export const columns: Record<keyof EventChanges, string> = {
 	name: "name",
 	description: "description",
+	address: "address",
 	lat: "lat",
 	lng: "lng",
 	date: "date",

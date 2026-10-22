@@ -12,11 +12,13 @@ CREATE TABLE IF NOT EXISTS events (
 	icon TEXT NOT NULL,
 	icon_color TEXT NOT NULL,
 	visible INTEGER NOT NULL DEFAULT 1, -- 0 or 1
-	description TEXT NOT NULL DEFAULT ''
+	description TEXT NOT NULL DEFAULT '',
+	address TEXT NOT NULL DEFAULT ''   -- raw address as the user typed it
 );
 
 -- Upgrades for databases created by older versions (the app also runs these automatically):
 -- ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT '';
 -- ALTER TABLE events RENAME COLUMN visable TO visible;
+-- ALTER TABLE events ADD COLUMN address TEXT NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id);

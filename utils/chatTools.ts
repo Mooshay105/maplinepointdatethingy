@@ -8,6 +8,7 @@ export const addEventInput = z.object({
 	name: z.string().describe("The name of the event"),
 	description: z.string().optional().describe("A description of the event"),
 	date: z.string().describe("The date of the event, in DD/MM/YYYY format"),
+	address: z.string().optional().describe("The event's address, as the user wrote it"),
 	latitude: z.number().describe("The latitude of the event"),
 	longitude: z.number().describe("The longitude of the event"),
 	icon: z.enum(EVENT_ICONS).optional().describe("The icon to use for the event"),
@@ -19,6 +20,7 @@ export const editEventInput = z.object({
 	name: z.string().optional().describe("The name of the event"),
 	description: z.string().optional().describe("A description of the event"),
 	date: z.string().optional().describe("The date of the event, in DD/MM/YYYY format"),
+	address: z.string().optional().describe("The event's address, as the user wrote it"),
 	latitude: z.number().optional().describe("The latitude of the event"),
 	longitude: z.number().optional().describe("The longitude of the event"),
 });

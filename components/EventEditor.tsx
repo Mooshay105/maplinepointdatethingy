@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
 	COLOR_LABELS,
 	EVENT_COLORS,
@@ -11,6 +11,7 @@ import {
 	MapEvent,
 } from "@/utils/types";
 import { formatNzDate, parseNzDate } from "@/utils/dates";
+import { geocodeAddress } from "@/utils/geocode";
 import { EyeIcon, TrashIcon } from "./Icons";
 
 /**
@@ -30,6 +31,11 @@ export default function EventEditor({
 }) {
 	// Text the user is typing that isn't a valid value yet, so the input doesn't snap back mid-edit
 	const [drafts, setDrafts] = useState<{ date?: string; lat?: string; lng?: string }>({});
+	const [lookupFailed, setLookupFailed] = useState(false);
+	// The address when the input was focused, so blurring without a change doesn't look it up again
+	const addressOnFocus = useRef(event.address);
+	// Bumped on every address edit, so a lookup that finishes after the address changed is ignored
+	const addressVersion = useRef(0);
 	const readOnly = !onUpdate;
 
 	function update(changes: Partial<MapEvent>) {
@@ -44,6 +50,18 @@ export default function EventEditor({
 		setDrafts((prev) => ({ ...prev, [key]: value }));
 		const n = Number(value);
 		if (value.trim() !== "" && Number.isFinite(n)) update({ [key]: n });
+	}
+
+	/** Fills lat/lng from the address. The address itself is kept exactly as typed. */
+	async function lookUpAddress() {
+		const address = event.address.trim();
+		if (address === "" || event.address === addressOnFocus.current) return;
+		addressOnFocus.current = event.address;
+		const version = addressVersion.current;
+		const result = await geocodeAddress(address);
+		if (addressVersion.current !== version) return;
+		setLookupFailed(!result);
+		if (result) update({ lat: result.latitude, lng: result.longitude });
 	}
 
 	return (
@@ -82,6 +100,25 @@ export default function EventEditor({
 					</button>
 				) : null}
 			</div>
+			{readOnly && !event.address ? null : (
+				<input
+					className={`block border rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)] ${lookupFailed ? "border-danger" : "border-line"}`}
+					value={event.address}
+					readOnly={readOnly}
+					title={lookupFailed ? "Couldn't find this address" : undefined}
+					onFocus={() => (addressOnFocus.current = event.address)}
+					onChange={(e) => {
+						addressVersion.current++;
+						setLookupFailed(false);
+						update({ address: e.target.value });
+					}}
+					onBlur={lookUpAddress}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") e.currentTarget.blur();
+					}}
+					placeholder="Address"
+				/>
+			)}
 			<div className="flex flex-row">
 				<input
 					className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"

@@ -17,15 +17,13 @@ import {
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { Show, SignInButton, UserButton, useAuth } from "@clerk/nextjs";
-// Imported as a namespace so e.g. eventsSync.updateEvent (saves to the db) can't be mixed up
-// with this page's updateEvent (updates the screen, then calls eventsSync.updateEvent)
 import * as eventsSync from "@/utils/eventsSync";
 import { formatNzDate, parseNzDate } from "@/utils/dates";
 import { getOpenaiApiKey, setOpenaiApiKey, useOpenaiApiKey } from "@/utils/openaiApiKey";
 import { AddEventInput, DeleteEventInput, EditEventInput } from "@/utils/chatTools";
+import { loadEvents } from "@/utils/migrate";
+import { geocodeAddress } from "@/utils/geocode";
 
-// Created once, outside the component. The headers function runs on every request, so it
-// always sends the key that's currently saved.
 const chatTransport = new DefaultChatTransport({
 	api: "/api/chat",
 	headers: (): Record<string, string> => {
@@ -34,46 +32,14 @@ const chatTransport = new DefaultChatTransport({
 	},
 });
 
-/** Where the old localStorage-only version of the app saved events (it called them "points"). */
-const LEGACY_STORAGE_KEY = "points";
-
-type LegacyEvent = Omit<MapEvent, "date" | "description" | "visible"> & {
-	date: string;
-	description?: string;
-	visable?: boolean;
-};
-
-/** Loads the user's events, first uploading any left over from the localStorage-only version. */
-async function loadEvents(): Promise<MapEvent[]> {
-	const stored = localStorage.getItem(LEGACY_STORAGE_KEY);
-	if (stored) {
-		const legacy: MapEvent[] = (JSON.parse(stored) as LegacyEvent[]).map(
-			({ visable, ...event }) => ({
-				description: "",
-				...event,
-				date: new Date(event.date),
-				visible: visable ?? true,
-			}),
-		);
-		await eventsSync.createEvents(legacy);
-		localStorage.removeItem(LEGACY_STORAGE_KEY);
-	}
-	return eventsSync.fetchEvents();
-}
-
-function sortByDate(events: MapEvent[]): MapEvent[] {
-	return [...events].sort((a, b) => a.date.getTime() - b.date.getTime());
-}
-
 export default function Home() {
-	// The "add event" form
 	const [name, setName] = useState("");
 	const [date, setDate] = useState("");
+	const [address, setAddress] = useState("");
 	const [lat, setLat] = useState("");
 	const [lng, setLng] = useState("");
 	const [icon, setIcon] = useState<EventIcon>("indoor-athletics");
 	const [color, setColor] = useState<EventColor>("red");
-
 	const [events, setEvents] = useState<MapEvent[]>([]);
 	const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
@@ -84,6 +50,11 @@ export default function Home() {
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const openaiApiKey = useOpenaiApiKey();
 	const eventsRef = useRef(events);
+	// The add form's last address lookup, reused until the address changes (e.g. blur then submit)
+	const formLookup = useRef<{
+		address: string;
+		result: Promise<{ lat: string; lng: string } | null>;
+	}>(null);
 	const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
 
 	const loaded = isSignedIn === true && loadedUserId === userId;
@@ -98,7 +69,6 @@ export default function Home() {
 		return () => window.removeEventListener("pagehide", eventsSync.flushAllUpdates);
 	}, []);
 
-	// The db is the source of truth: load the user's events once, then edit them locally and sync changes back
 	useEffect(() => {
 		if (!isSignedIn) return;
 
@@ -125,7 +95,9 @@ export default function Home() {
 			const next = prev.map((event) =>
 				event.id === id ? { ...event, ...changes } : event,
 			);
-			return changes.date !== undefined ? sortByDate(next) : next;
+			return changes.date !== undefined
+				? next.sort((a, b) => a.date.getTime() - b.date.getTime())
+				: next;
 		});
 		eventsSync.updateEvent(id, changes);
 	}
@@ -147,6 +119,7 @@ export default function Home() {
 		icon: EventIcon;
 		iconColor: EventColor;
 		description?: string;
+		address?: string;
 	}): MapEvent | null {
 		const parsedDate = fields.date.trim() === "" ? new Date() : parseNzDate(fields.date);
 		if (!parsedDate) {
@@ -160,29 +133,72 @@ export default function Home() {
 
 		const event: MapEvent = {
 			description: "",
+			address: "",
 			...fields,
 			id: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER) + 1, // The db wants a positive id
 			date: parsedDate,
 			visible: true,
 		};
-		setEvents((prev) => sortByDate([...prev, event]));
+		setEvents((prev) =>
+			[...prev, event].sort((a, b) => a.date.getTime() - b.date.getTime()),
+		);
 		eventsSync.createEvent(event);
 		return event;
 	}
 
-	function handleAddEventSubmit(e: FormEvent<HTMLFormElement>) {
+	/**
+	 * Fills the add form's lat/lng from its address. Typing lat/lng by hand afterwards
+	 * leaves the address alone.
+	 * @returns The coordinates, or null if the address is empty or not found.
+	 */
+	function lookUpFormAddress(): Promise<{ lat: string; lng: string } | null> {
+		const trimmed = address.trim();
+		if (trimmed === "") return Promise.resolve(null);
+		if (formLookup.current?.address === trimmed) return formLookup.current.result;
+
+		const result = geocodeAddress(trimmed).then((found) => {
+			if (formLookup.current?.result !== result) return null; // Superseded by a newer address
+			if (!found) {
+				setSubmitError(`Couldn't find "${trimmed}".`);
+				return null;
+			}
+			setSubmitError(null);
+			const coords = { lat: String(found.latitude), lng: String(found.longitude) };
+			setLat(coords.lat);
+			setLng(coords.lng);
+			return coords;
+		});
+		formLookup.current = { address: trimmed, result };
+		return result;
+	}
+
+	async function handleAddEventSubmit(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
+		let coords = { lat, lng };
+		// Pressing Enter in the address box submits before it blurs, so look it up here too
+		if (lat.trim() === "" || lng.trim() === "") {
+			const found = await lookUpFormAddress();
+			if (!found) {
+				if (address.trim() === "") setSubmitError("Enter an address or coordinates.");
+				return;
+			}
+			coords = found;
+		}
 		const added = addEvent({
 			name,
 			date,
-			lat: Number(lat),
-			lng: Number(lng),
+			address,
+			lat: Number(coords.lat),
+			lng: Number(coords.lng),
 			icon,
 			iconColor: color,
 		});
 		if (!added) return;
+		setSubmitError(null);
 		setName("");
 		setDate("");
+		setAddress("");
+		formLookup.current = null;
 		setLat("");
 		setLng("");
 	}
@@ -217,6 +233,7 @@ export default function Home() {
 					icon: input.icon ?? "outdoor-athletics",
 					iconColor: input.iconColor ?? "grey",
 					description: input.description,
+					address: input.address,
 				});
 				respond(
 					event
@@ -232,6 +249,7 @@ export default function Home() {
 				const changes: Partial<MapEvent> = {};
 				if (input.name !== undefined) changes.name = input.name;
 				if (input.description !== undefined) changes.description = input.description;
+				if (input.address !== undefined) changes.address = input.address;
 				if (input.latitude !== undefined) changes.lat = input.latitude;
 				if (input.longitude !== undefined) changes.lng = input.longitude;
 				if (input.date !== undefined) {
@@ -257,6 +275,7 @@ export default function Home() {
 					id: event.id,
 					name: event.name,
 					description: event.description,
+					address: event.address,
 					date: formatNzDate(event.date),
 					latitude: event.lat,
 					longitude: event.lng,
@@ -403,65 +422,70 @@ export default function Home() {
 								{submitError ? (
 									<div className="text-danger mt-2 text-center">{submitError}</div>
 								) : null}
-								<div className="flex flex-row">
-									<div className="flex flex-col">
-										<div className="flex flex-row">
-											<input
-												className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-												value={name}
-												onChange={(e) => setName(e.target.value)}
-												placeholder="Name"
-											/>
-											<input
-												className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-												value={date}
-												onChange={(e) => setDate(e.target.value)}
-												placeholder="Date (DD/MM/YYYY)"
-											/>
-										</div>
+								<div className="flex flex-col">
+									<div className="flex flex-row">
+										<input
+											className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+											value={name}
+											onChange={(e) => setName(e.target.value)}
+											placeholder="Name"
+										/>
+										<input
+											className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+											value={date}
+											onChange={(e) => setDate(e.target.value)}
+											placeholder="Date (DD/MM/YYYY)"
+										/>
+									</div>
 
-										<div className="flex flex-row">
-											<input
-												className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-												value={lat}
-												onChange={(e) => setLat(e.target.value)}
-												placeholder="Latitude"
-											/>
-											<input
-												className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-												value={lng}
-												onChange={(e) => setLng(e.target.value)}
-												placeholder="Longitude"
-											/>
-										</div>
-										<div className="flex flex-row">
-											<select
-												className="border border-line rounded-md mt-2 mb-2 ml-2 mr-1 px-2 w-1/2"
-												value={icon}
-												onChange={(e) => setIcon(e.target.value as EventIcon)}
-											>
-												{EVENT_ICONS.map((icon) => (
-													<option key={icon} value={icon}>
-														{ICON_LABELS[icon]}
-													</option>
-												))}
-											</select>
-											<select
-												className="border border-line rounded-md mt-2 mb-2 ml-1 mr-2 px-2 w-1/2"
-												value={color}
-												onChange={(e) => setColor(e.target.value as EventColor)}
-											>
-												{EVENT_COLORS.map((color) => (
-													<option key={color} value={color}>
-														{COLOR_LABELS[color]}
-													</option>
-												))}
-											</select>
-										</div>
+									<input
+										className="border border-line rounded-md mt-2 mx-2 px-2"
+										value={address}
+										onChange={(e) => setAddress(e.target.value)}
+										onBlur={lookUpFormAddress}
+										placeholder="Address"
+									/>
+									<div className="flex flex-row">
+										<input
+											className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+											value={lat}
+											onChange={(e) => setLat(e.target.value)}
+											placeholder="Latitude"
+										/>
+										<input
+											className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+											value={lng}
+											onChange={(e) => setLng(e.target.value)}
+											placeholder="Longitude"
+										/>
+									</div>
+									<div className="flex flex-row">
+										<select
+											className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+											value={icon}
+											onChange={(e) => setIcon(e.target.value as EventIcon)}
+										>
+											{EVENT_ICONS.map((icon) => (
+												<option key={icon} value={icon}>
+													{ICON_LABELS[icon]}
+												</option>
+											))}
+										</select>
+										<select
+											className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+											value={color}
+											onChange={(e) => setColor(e.target.value as EventColor)}
+										>
+											{EVENT_COLORS.map((color) => (
+												<option key={color} value={color}>
+													{COLOR_LABELS[color]}
+												</option>
+											))}
+										</select>
 									</div>
 									<button
 										type="submit"
-										className="border border-line rounded-md mt-2 mb-2 mr-2 px-2"
+										className="border border-line rounded-md mt-2 mb-2 mx-2 px-2"
 									>
 										Add
 									</button>

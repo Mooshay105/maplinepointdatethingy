@@ -58,10 +58,18 @@ export type MapEvent = {
 	id: number;
 	name: string;
 	description: string;
+	/** The address as the user typed it. Looked up to fill lat/lng, but never overwritten by them. */
+	address: string;
 	lat: number;
 	lng: number;
 	date: Date;
 	icon: EventIcon;
 	iconColor: EventColor;
 	visible: boolean;
+};
+
+export type LegacyEvent = Omit<MapEvent, "date" | "description" | "address" | "visible"> & {
+	date: string;
+	description?: string;
+	visable?: boolean;
 };
