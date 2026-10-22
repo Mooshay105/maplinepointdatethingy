@@ -10,6 +10,8 @@ export const EVENT_ICONS = [
 	"combined-events",
 	"race-walking",
 	"diamond-league",
+	"dna",
+	"want-to-go",
 ] as const;
 
 export type EventIcon = (typeof EVENT_ICONS)[number];
@@ -24,6 +26,8 @@ export const ICON_LABELS: Record<EventIcon, string> = {
 	"combined-events": "Combined Events",
 	"race-walking": "Race Walking",
 	"diamond-league": "Diamond League",
+	dna: "DNA",
+	"want-to-go": "Want to Go",
 };
 
 export const EVENT_COLORS = [
