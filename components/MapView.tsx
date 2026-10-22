@@ -6,7 +6,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { EventColor, EventIcon, MapEvent } from "@/utils/types";
+import { EventColor, EventIcon, Layer, MapEvent, MapGroup } from "@/utils/types";
 import EventEditor from "./EventEditor";
 
 // Maps JavaScript API keys are public by design (they end up in the browser); restrict them by
@@ -79,12 +79,17 @@ export default function MapView({
 	alwaysShowHoverMenus = false,
 	onUpdate,
 	onDelete,
+	groups,
+	layers,
 }: {
 	events: MapEvent[];
 	fullScreen?: boolean;
 	alwaysShowHoverMenus?: boolean;
 	onUpdate?: (id: number, changes: Partial<MapEvent>) => void;
 	onDelete?: (id: number) => void;
+	/** For the hover menus' group picker. */
+	groups?: MapGroup[];
+	layers?: Layer[];
 }) {
 	const ref = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<any>(null);
@@ -226,6 +231,8 @@ export default function MapView({
 									event={event}
 									onUpdate={onUpdate}
 									onDelete={onDelete}
+									groups={groups}
+									layers={layers}
 									className="w-72 bg-panel border border-line rounded-xl text-panel-foreground text-sm shadow-lg shadow-black/50"
 								/>
 								<div className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1.5 w-3 h-3 rotate-45 bg-panel border-r border-b border-line" />

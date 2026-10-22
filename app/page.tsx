@@ -3,7 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import MapView from "@/components/MapView";
 import Chat from "@/components/Chat";
-import EventEditor from "@/components/EventEditor";
+import EventTree from "@/components/EventTree";
+import PlacementSelect from "@/components/PlacementSelect";
 import { SettingsIcon, UserIcon } from "@/components/Icons";
 import {
 	COLOR_LABELS,
@@ -12,12 +13,17 @@ import {
 	EventColor,
 	EventIcon,
 	ICON_LABELS,
+	Layer,
 	MapEvent,
+	MapGroup,
 } from "@/utils/types";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { Show, SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 import * as eventsSync from "@/utils/eventsSync";
+import * as groupsSync from "@/utils/groupsSync";
+import { flushAllUpdates, newId } from "@/utils/sync";
+import { isShownOnMap, Placement, placementOf, UNGROUPED } from "@/utils/groups";
 import { formatNzDate, parseNzDate } from "@/utils/dates";
 import { getOpenaiApiKey, setOpenaiApiKey, useOpenaiApiKey } from "@/utils/openaiApiKey";
 import { AddEventInput, DeleteEventInput, EditEventInput } from "@/utils/chatTools";
@@ -40,7 +46,10 @@ export default function Home() {
 	const [lng, setLng] = useState("");
 	const [icon, setIcon] = useState<EventIcon>("indoor-athletics");
 	const [color, setColor] = useState<EventColor>("red");
+	const [placement, setPlacement] = useState<Placement>(UNGROUPED);
 	const [events, setEvents] = useState<MapEvent[]>([]);
+	const [groups, setGroups] = useState<MapGroup[]>([]);
+	const [layers, setLayers] = useState<Layer[]>([]);
 	const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [selectedTab, setSelectedTab] = useState<"events" | "chat">("events");
@@ -58,25 +67,29 @@ export default function Home() {
 	const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
 
 	const loaded = isSignedIn === true && loadedUserId === userId;
-	const visibleEvents = loaded ? events.filter((event) => event.visible) : [];
+	const visibleEvents = loaded
+		? events.filter((event) => isShownOnMap(event, groups, layers))
+		: [];
 
 	useEffect(() => {
 		eventsRef.current = events;
 	}, [events]);
 
 	useEffect(() => {
-		window.addEventListener("pagehide", eventsSync.flushAllUpdates);
-		return () => window.removeEventListener("pagehide", eventsSync.flushAllUpdates);
+		window.addEventListener("pagehide", flushAllUpdates);
+		return () => window.removeEventListener("pagehide", flushAllUpdates);
 	}, []);
 
 	useEffect(() => {
 		if (!isSignedIn) return;
 
 		let cancelled = false;
-		loadEvents()
-			.then((loadedEvents) => {
+		Promise.all([loadEvents(), groupsSync.fetchGroups()])
+			.then(([loadedEvents, loadedGroups]) => {
 				if (cancelled) return;
 				setEvents(loadedEvents);
+				setGroups(loadedGroups.groups);
+				setLayers(loadedGroups.layers);
 				setLoadedUserId(userId);
 				setLoadError(null);
 			})
@@ -107,6 +120,52 @@ export default function Home() {
 		eventsSync.deleteEvent(id);
 	}
 
+	function addGroup() {
+		const group: MapGroup = { id: newId(), name: "", visible: true };
+		setGroups((prev) => [...prev, group]);
+		groupsSync.createGroup(group);
+	}
+
+	function updateGroup(id: number, changes: Partial<MapGroup>) {
+		setGroups((prev) =>
+			prev.map((group) => (group.id === id ? { ...group, ...changes } : group)),
+		);
+		groupsSync.updateGroup(id, changes);
+	}
+
+	/** Deletes the group and its layers, but keeps their events, moving them out of the group. */
+	function deleteGroup(id: number) {
+		setGroups((prev) => prev.filter((group) => group.id !== id));
+		setLayers((prev) => prev.filter((layer) => layer.groupId !== id));
+		// Events in the group's layers store the group too, so this catches them as well
+		setEvents((prev) =>
+			prev.map((event) => (event.groupId === id ? { ...event, ...UNGROUPED } : event)),
+		);
+		groupsSync.deleteGroup(id);
+	}
+
+	function addLayer(groupId: number) {
+		const layer: Layer = { id: newId(), groupId, name: "", visible: true };
+		setLayers((prev) => [...prev, layer]);
+		groupsSync.createLayer(layer);
+	}
+
+	function updateLayer(id: number, changes: Partial<Layer>) {
+		setLayers((prev) =>
+			prev.map((layer) => (layer.id === id ? { ...layer, ...changes } : layer)),
+		);
+		groupsSync.updateLayer(id, changes);
+	}
+
+	/** Deletes the layer, but keeps its events in the layer's group. */
+	function deleteLayer(id: number) {
+		setLayers((prev) => prev.filter((layer) => layer.id !== id));
+		setEvents((prev) =>
+			prev.map((event) => (event.layerId === id ? { ...event, layerId: null } : event)),
+		);
+		groupsSync.deleteLayer(id);
+	}
+
 	/**
 	 * Adds a new event. An empty date means today.
 	 * @returns The new event, or null if the date is invalid.
@@ -120,6 +179,8 @@ export default function Home() {
 		iconColor: EventColor;
 		description?: string;
 		address?: string;
+		groupId?: number | null;
+		layerId?: number | null;
 	}): MapEvent | null {
 		const parsedDate = fields.date.trim() === "" ? new Date() : parseNzDate(fields.date);
 		if (!parsedDate) {
@@ -134,8 +195,9 @@ export default function Home() {
 		const event: MapEvent = {
 			description: "",
 			address: "",
+			...UNGROUPED,
 			...fields,
-			id: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER) + 1, // The db wants a positive id
+			id: newId(),
 			date: parsedDate,
 			visible: true,
 		};
@@ -184,6 +246,8 @@ export default function Home() {
 			}
 			coords = found;
 		}
+		// The picked group or layer may have been deleted since
+		const { group, layer } = placementOf(placement, groups, layers);
 		const added = addEvent({
 			name,
 			date,
@@ -192,6 +256,8 @@ export default function Home() {
 			lng: Number(coords.lng),
 			icon,
 			iconColor: color,
+			groupId: group?.id ?? null,
+			layerId: layer?.id ?? null,
 		});
 		if (!added) return;
 		setSubmitError(null);
@@ -375,6 +441,8 @@ export default function Home() {
 				alwaysShowHoverMenus={settings.alwaysShowHoverMenus}
 				onUpdate={updateEvent}
 				onDelete={deleteEvent}
+				groups={groups}
+				layers={layers}
 			/>
 			<div className="fixed top-0 left-0 h-full w-1/4 bg-panel border-r border-line text-panel-foreground p-2 overflow-y-auto">
 				<div className="fixed top-0 left-0 w-1/4 px-2 flex flex-row justify-between border-b border-r border-line bg-panel">
@@ -393,7 +461,7 @@ export default function Home() {
 				</div>
 				{selectedTab === "events" ? (
 					<div>
-						<div className="mb-30 mt-7">
+						<div className="mb-52 mt-7">
 							{!authLoaded ? (
 								<div className="text-center">Loading...</div>
 							) : !isSignedIn ? (
@@ -401,15 +469,28 @@ export default function Home() {
 							) : loadError ? (
 								<div className="text-center text-danger">{loadError}</div>
 							) : loaded ? (
-								events.map((event) => (
-									<EventEditor
-										key={event.id}
-										event={event}
-										onUpdate={updateEvent}
-										onDelete={deleteEvent}
-										className="border border-line rounded-xl m-2"
+								<>
+									<div className="flex flex-row justify-end">
+										<button
+											className="border border-line rounded-md mt-2 mx-2 px-2 w-full"
+											onClick={addGroup}
+										>
+											+ Group
+										</button>
+									</div>
+									<EventTree
+										events={events}
+										groups={groups}
+										layers={layers}
+										onUpdateEvent={updateEvent}
+										onDeleteEvent={deleteEvent}
+										onUpdateGroup={updateGroup}
+										onDeleteGroup={deleteGroup}
+										onAddLayer={addLayer}
+										onUpdateLayer={updateLayer}
+										onDeleteLayer={deleteLayer}
 									/>
-								))
+								</>
 							) : (
 								<div className="text-center">Loading...</div>
 							)}
@@ -483,6 +564,13 @@ export default function Home() {
 											))}
 										</select>
 									</div>
+									<PlacementSelect
+										className="border border-line bg-panel rounded-md mt-2 mx-2 px-2"
+										value={placement}
+										groups={groups}
+										layers={layers}
+										onChange={setPlacement}
+									/>
 									<button
 										type="submit"
 										className="border border-line rounded-md mt-2 mb-2 mx-2 px-2"

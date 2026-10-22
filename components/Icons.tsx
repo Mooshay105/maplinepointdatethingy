@@ -88,3 +88,8 @@ export function StopIcon(props: IconProps) {
 		</Icon>
 	);
 }
+
+/** Points right, or down when `open` is true (e.g. for an expanded group). */
+export function ChevronIcon({ open = false, ...props }: IconProps & { open?: boolean }) {
+	return <Icon {...props}>{open ? <path d="m6 9 6 6 6-6" /> : <path d="m9 6 6 6-6 6" />}</Icon>;
+}

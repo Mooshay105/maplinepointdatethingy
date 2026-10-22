@@ -70,9 +70,31 @@ export type MapEvent = {
 	icon: EventIcon;
 	iconColor: EventColor;
 	visible: boolean;
+	/** The group the event sits in, or null when it isn't in one. Events in a layer also store that layer's group. */
+	groupId: number | null;
+	/** The layer the event sits in, or null when it sits directly in its group (or in no group). */
+	layerId: number | null;
 };
 
-export type LegacyEvent = Omit<MapEvent, "date" | "description" | "address" | "visible"> & {
+/** A folder of events and layers that can be hidden from the map all at once. */
+export type MapGroup = {
+	id: number;
+	name: string;
+	visible: boolean;
+};
+
+/** A folder of events inside a group. Layers can't contain other layers. */
+export type Layer = {
+	id: number;
+	groupId: number;
+	name: string;
+	visible: boolean;
+};
+
+export type LegacyEvent = Omit<
+	MapEvent,
+	"date" | "description" | "address" | "visible" | "groupId" | "layerId"
+> & {
 	date: string;
 	description?: string;
 	visable?: boolean;

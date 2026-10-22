@@ -8,11 +8,14 @@ import {
 	EventColor,
 	EventIcon,
 	ICON_LABELS,
+	Layer,
 	MapEvent,
+	MapGroup,
 } from "@/utils/types";
 import { formatNzDate, parseNzDate } from "@/utils/dates";
 import { geocodeAddress } from "@/utils/geocode";
 import { EyeIcon, TrashIcon } from "./Icons";
+import PlacementSelect from "./PlacementSelect";
 
 /**
  * Editable fields for one event, shared by the sidebar and the map's hover menus.
@@ -22,11 +25,16 @@ export default function EventEditor({
 	event,
 	onUpdate,
 	onDelete,
+	groups,
+	layers = [],
 	className = "",
 }: {
 	event: MapEvent;
 	onUpdate?: (id: number, changes: Partial<MapEvent>) => void;
 	onDelete?: (id: number) => void;
+	/** Lets the event be moved between groups and layers. Left out, there's no picker. */
+	groups?: MapGroup[];
+	layers?: Layer[];
 	className?: string;
 }) {
 	// Text the user is typing that isn't a valid value yet, so the input doesn't snap back mid-edit
@@ -173,6 +181,15 @@ export default function EventEditor({
 					))}
 				</select>
 			</div>
+			{groups && !readOnly ? (
+				<PlacementSelect
+					className="block border border-line bg-panel rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)]"
+					value={event}
+					groups={groups}
+					layers={layers}
+					onChange={update}
+				/>
+			) : null}
 			{readOnly && !event.description ? (
 				<div className="mb-2" />
 			) : (

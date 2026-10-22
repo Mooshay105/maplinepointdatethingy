@@ -15,6 +15,8 @@ export async function loadEvents(): Promise<MapEvent[]> {
 				...event,
 				date: new Date(event.date),
 				visible: visable ?? true,
+				groupId: null,
+				layerId: null,
 			}),
 		);
 		await eventsSync.createEvents(legacy);
