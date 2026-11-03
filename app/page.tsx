@@ -5,10 +5,9 @@ import MapView from "@/components/MapView";
 import Chat from "@/components/Chat";
 import EventTree from "@/components/EventTree";
 import PlacementSelect from "@/components/PlacementSelect";
+import ColorSelect from "@/components/ColorSelect";
 import { SettingsIcon, UserIcon } from "@/components/Icons";
 import {
-	COLOR_LABELS,
-	EVENT_COLORS,
 	EVENT_ICONS,
 	EventColor,
 	EventIcon,
@@ -688,17 +687,12 @@ export default function Home() {
 												</option>
 											))}
 										</select>
-										<select
-											className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+										<ColorSelect
+											className="mt-2 ml-1 mr-2 w-1/2"
+											selectClassName="border border-line rounded-md px-2"
 											value={color}
-											onChange={(e) => setColor(e.target.value as EventColor)}
-										>
-											{EVENT_COLORS.map((color) => (
-												<option key={color} value={color}>
-													{COLOR_LABELS[color]}
-												</option>
-											))}
-										</select>
+											onChange={setColor}
+										/>
 									</div>
 									<PlacementSelect
 										className="border border-line bg-panel rounded-md mt-2 mx-2 px-2"

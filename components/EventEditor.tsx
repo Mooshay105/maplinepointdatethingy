@@ -2,10 +2,7 @@
 
 import { useRef, useState } from "react";
 import {
-	COLOR_LABELS,
-	EVENT_COLORS,
 	EVENT_ICONS,
-	EventColor,
 	EventIcon,
 	ICON_LABELS,
 	Layer,
@@ -16,6 +13,7 @@ import { formatNzDate, parseNzDate } from "@/utils/dates";
 import { geocodeAddress } from "@/utils/geocode";
 import { EyeIcon, TrashIcon } from "./Icons";
 import PlacementSelect from "./PlacementSelect";
+import ColorSelect from "./ColorSelect";
 
 /**
  * Editable fields for one event, shared by the sidebar and the map's hover menus.
@@ -168,18 +166,13 @@ export default function EventEditor({
 						</option>
 					))}
 				</select>
-				<select
-					className="border border-line bg-panel rounded-md mt-2 ml-1 mr-2 px-2 w-1/2 min-w-0"
+				<ColorSelect
+					className="mt-2 ml-1 mr-2 w-1/2 min-w-0"
+					selectClassName="border border-line bg-panel rounded-md px-2"
 					value={event.iconColor}
 					disabled={readOnly}
-					onChange={(e) => update({ iconColor: e.target.value as EventColor })}
-				>
-					{EVENT_COLORS.map((color) => (
-						<option key={color} value={color}>
-							{COLOR_LABELS[color]}
-						</option>
-					))}
-				</select>
+					onChange={(iconColor) => update({ iconColor })}
+				/>
 			</div>
 			{groups && !readOnly ? (
 				<PlacementSelect

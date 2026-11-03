@@ -1,5 +1,11 @@
 import z from "zod";
-import { EVENT_COLORS, EVENT_ICONS } from "./types";
+import { EVENT_COLORS, EVENT_ICONS, eventColorSchema } from "./types";
+
+const iconColorInput = eventColorSchema
+	.optional()
+	.describe(
+		`The color of the event's icon: one of ${EVENT_COLORS.join(", ")}, or any custom color as a 6-digit hex code like #ff8800`,
+	);
 
 // Input schemas for the chat tools that run in the browser (see onToolCall in app/page.tsx).
 // Shared so the server's tool definitions and the client's handler agree on the shape.
@@ -12,7 +18,7 @@ export const addEventInput = z.object({
 	latitude: z.number().describe("The latitude of the event"),
 	longitude: z.number().describe("The longitude of the event"),
 	icon: z.enum(EVENT_ICONS).optional().describe("The icon to use for the event"),
-	iconColor: z.enum(EVENT_COLORS).optional().describe("The color of the event's icon"),
+	iconColor: iconColorInput,
 	groupId: z.number().optional().describe("The id of the group this event belongs to"),
 	layerId: z
 		.number()
@@ -31,7 +37,7 @@ export const editEventInput = z.object({
 	latitude: z.number().optional().describe("The latitude of the event"),
 	longitude: z.number().optional().describe("The longitude of the event"),
 	icon: z.enum(EVENT_ICONS).optional().describe("The icon to use for the event"),
-	iconColor: z.enum(EVENT_COLORS).optional().describe("The color of the event's icon"),
+	iconColor: iconColorInput,
 	groupId: z.number().optional().describe("The id of the group this event belongs to"),
 	layerId: z
 		.number()

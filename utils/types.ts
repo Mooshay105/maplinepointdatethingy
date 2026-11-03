@@ -1,3 +1,5 @@
+import z from "zod";
+
 // Single source of truth for the marker icons and colours. The type, the dropdowns and the
 // API validation (utils/db.ts) are all built from these lists, so adding one here adds it everywhere.
 
@@ -30,6 +32,7 @@ export const ICON_LABELS: Record<EventIcon, string> = {
 	"want-to-go": "Want to Go",
 };
 
+/** The named colours offered in the dropdowns. Events can also use any custom colour as a hex code. */
 export const EVENT_COLORS = [
 	"red",
 	"yellow",
@@ -37,24 +40,76 @@ export const EVENT_COLORS = [
 	"green",
 	"blue",
 	"purple",
+	"bronze",
 	"black",
 	"grey",
 	"white",
 ] as const;
 
-export type EventColor = (typeof EVENT_COLORS)[number];
+export type PresetColor = (typeof EVENT_COLORS)[number];
 
-export const COLOR_LABELS: Record<EventColor, string> = {
+/** A preset name, or a custom colour as a 6-digit hex code like "#ff8800". */
+export type EventColor = PresetColor | `#${string}`;
+
+export const COLOR_LABELS: Record<PresetColor, string> = {
 	red: "Red",
 	yellow: "Yellow",
 	orange: "Orange",
 	green: "Green",
 	blue: "Blue",
 	purple: "Purple",
+	bronze: "Bronze",
 	black: "Black",
 	grey: "Grey",
 	white: "White",
 };
+
+/** The disc colour of each preset marker. */
+export const PRESET_HEX: Record<PresetColor, string> = {
+	red: "#fc413d",
+	orange: "#e65100",
+	yellow: "#ffea00",
+	green: "#097138",
+	blue: "#1e88e5",
+	purple: "#9c27b0",
+	bronze: "#cd7f32",
+	black: "#0f0f0f",
+	grey: "#707070",
+	white: "#f0f0f0",
+};
+
+export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+/** Validates an event colour: a preset name, or a hex code (stored lowercase). */
+export const eventColorSchema = z.union([
+	z.enum(EVENT_COLORS),
+	z
+		.string()
+		.regex(HEX_COLOR_PATTERN)
+		.transform((hex) => hex.toLowerCase() as `#${string}`),
+]);
+
+export function isPresetColor(color: string): color is PresetColor {
+	return (EVENT_COLORS as readonly string[]).includes(color);
+}
+
+/** The hex code an event colour is drawn in. */
+export function colorHex(color: EventColor): string {
+	return isPresetColor(color) ? PRESET_HEX[color] : color.toLowerCase();
+}
+
+/**
+ * The glyph colour for a marker disc: white, unless white would be hard to read on it
+ * (contrast under 3:1, e.g. on yellow or white), then near-black.
+ */
+export function readableOn(hex: string): string {
+	const channel = (i: number) => {
+		const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+		return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+	};
+	const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+	return 1.05 / (luminance + 0.05) >= 3 ? "#ffffff" : "#0f0f0f";
+}
 
 // Not called `Event`: that name already belongs to the browser's DOM Event type, so a missing
 // import would silently use the wrong type instead of giving an error.

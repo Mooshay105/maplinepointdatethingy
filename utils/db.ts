@@ -1,6 +1,6 @@
 import { createClient, Row } from "@libsql/client";
 import z from "zod";
-import { EVENT_COLORS, EVENT_ICONS, EventColor, EventIcon } from "./types";
+import { EVENT_ICONS, EventColor, EventIcon, eventColorSchema } from "./types";
 
 export const db = createClient({
 	url: process.env.TURSO_DATABASE_URL!,
@@ -97,7 +97,7 @@ export const eventSchema = z.object({
 	lng: z.number(),
 	date: z.number(),
 	icon: z.enum(EVENT_ICONS),
-	iconColor: z.enum(EVENT_COLORS),
+	iconColor: eventColorSchema,
 	visible: z.boolean(),
 	groupId: idSchema.nullable(),
 	layerId: idSchema.nullable(),

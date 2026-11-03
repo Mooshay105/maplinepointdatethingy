@@ -6,7 +6,15 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { EventColor, EventIcon, Layer, MapEvent, MapGroup } from "@/utils/types";
+import {
+	colorHex,
+	EventColor,
+	EventIcon,
+	Layer,
+	MapEvent,
+	MapGroup,
+	readableOn,
+} from "@/utils/types";
 import EventEditor from "./EventEditor";
 
 // Maps JavaScript API keys are public by design (they end up in the browser); restrict them by
@@ -36,19 +44,6 @@ function loadGoogleMaps(): Promise<any> {
 	return mapsPromise;
 }
 
-/** The disc colour, and a glyph colour that stays readable on top of it. */
-const MARKER_COLORS: Record<EventColor, { disc: string; glyph: string }> = {
-	red: { disc: "#fc413d", glyph: "#ffffff" },
-	orange: { disc: "#e65100", glyph: "#ffffff" },
-	yellow: { disc: "#ffea00", glyph: "#0f0f0f" },
-	green: { disc: "#097138", glyph: "#ffffff" },
-	blue: { disc: "#1a237e", glyph: "#ffffff" },
-	purple: { disc: "#9c27b0", glyph: "#ffffff" },
-	black: { disc: "#0f0f0f", glyph: "#ffffff" },
-	grey: { disc: "#707070", glyph: "#ffffff" },
-	white: { disc: "#f0f0f0", glyph: "#0f0f0f" },
-};
-
 const urlCache = new Map<string, string>();
 
 /**
@@ -60,7 +55,8 @@ async function iconUrl(icon: EventIcon, color: EventColor): Promise<string> {
 	const hit = urlCache.get(key);
 	if (hit) return hit;
 
-	const { disc, glyph } = MARKER_COLORS[color];
+	const disc = colorHex(color);
+	const glyph = readableOn(disc);
 	const svg = await (await fetch(`/icons/${icon}.svg`)).text();
 	const url =
 		"data:image/svg+xml;charset=UTF-8," +
