@@ -12,7 +12,17 @@ import z from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { geoLookup } from "@/utils/geoLookup";
-import { addEventInput, deleteEventInput, editEventInput } from "@/utils/chatTools";
+import {
+	addEventInput,
+	addGroupInput,
+	addLayerInput,
+	deleteEventInput,
+	deleteGroupInput,
+	deleteLayerInput,
+	editEventInput,
+	editGroupInput,
+	editLayerInput,
+} from "@/utils/chatTools";
 import { formatNzDate } from "@/utils/dates";
 
 export async function POST(req: Request) {
@@ -36,14 +46,15 @@ export async function POST(req: Request) {
 
 	const result = streamText({
 		model: openai("gpt-6-luna"),
-		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${formatNzDate(new Date())}. Use listEvents to find event ids before editing or deleting. Use geoLookup to get coordinates for an address or place before adding or moving an event there. Do not use markdown in your responses.`,
+		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${new Date().toLocaleString("en-NZ")}. Events can be put in groups, and groups can contain layers (a layer is a folder of events inside a group; layers can't contain other layers). Use listEvents to find event ids, and listGroups to find group and layer ids, before editing or deleting. Use geoLookup to get coordinates for an address or place before adding or moving an event there. Do not use markdown in your responses.`,
 		tools: {
 			addEvent: tool({
 				description: "Add an event to the calendar",
 				inputSchema: addEventInput,
 			}),
 			editEvent: tool({
-				description: "Edit an event in the calendar. Only the provided fields are changed.",
+				description:
+					"Edit an event in the calendar. Only the provided fields are changed.",
 				inputSchema: editEventInput,
 			}),
 			deleteEvent: tool({
@@ -54,6 +65,35 @@ export async function POST(req: Request) {
 				description: "List all events in the calendar, including their ids",
 				inputSchema: z.object({}),
 			}),
+			listGroups: tool({
+				description: "List all groups and the layers inside them, including their ids",
+				inputSchema: z.object({}),
+			}),
+			addGroup: tool({
+				description: "Add a group to put events in",
+				inputSchema: addGroupInput,
+			}),
+			editGroup: tool({
+				description: "Edit a group. Only the provided fields are changed.",
+				inputSchema: editGroupInput,
+			}),
+			deleteGroup: tool({
+				description:
+					"Delete a group and its layers. Their events are kept but moved out of the group.",
+				inputSchema: deleteGroupInput,
+			}),
+			addLayer: tool({
+				description: "Add a layer inside a group",
+				inputSchema: addLayerInput,
+			}),
+			editLayer: tool({
+				description: "Edit a layer. Only the provided fields are changed.",
+				inputSchema: editLayerInput,
+			}),
+			deleteLayer: tool({
+				description: "Delete a layer. Its events are kept and stay in the layer's group.",
+				inputSchema: deleteLayerInput,
+			}),
 			geoLookup: tool({
 				description:
 					"Look up the latitude and longitude of an address or place name using OpenStreetMap. Returns up to 3 candidate matches.",
@@ -61,7 +101,10 @@ export async function POST(req: Request) {
 					rawAddress: z.string().describe("The full address or place name as written"),
 					streetNumber: z.string().optional().describe("The street number"),
 					streetName: z.string().optional().describe("The street name"),
-					streetType: z.string().optional().describe("The street type, e.g. Road, Street"),
+					streetType: z
+						.string()
+						.optional()
+						.describe("The street type, e.g. Road, Street"),
 					suburb: z.string().optional().describe("The suburb"),
 					city: z.string().optional().describe("The city or town"),
 					state: z.string().optional().describe("The state or region"),
@@ -71,7 +114,9 @@ export async function POST(req: Request) {
 				execute: async (input) => {
 					try {
 						const results = await geoLookup(input);
-						return results.length > 0 ? results : `No location found for "${input.rawAddress}"`;
+						return results.length > 0
+							? results
+							: `No location found for "${input.rawAddress}"`;
 					} catch (err) {
 						return `Lookup failed: ${err instanceof Error ? err.message : String(err)}`;
 					}

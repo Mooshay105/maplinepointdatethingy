@@ -23,10 +23,26 @@ import { Show, SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 import * as eventsSync from "@/utils/eventsSync";
 import * as groupsSync from "@/utils/groupsSync";
 import { flushAllUpdates, newId } from "@/utils/sync";
-import { isShownOnMap, Placement, placementOf, UNGROUPED } from "@/utils/groups";
+import {
+	isShownOnMap,
+	parsePlacementValue,
+	Placement,
+	placementOf,
+	UNGROUPED,
+} from "@/utils/groups";
 import { formatNzDate, parseNzDate } from "@/utils/dates";
 import { getOpenaiApiKey, setOpenaiApiKey, useOpenaiApiKey } from "@/utils/openaiApiKey";
-import { AddEventInput, DeleteEventInput, EditEventInput } from "@/utils/chatTools";
+import {
+	AddEventInput,
+	AddGroupInput,
+	AddLayerInput,
+	DeleteEventInput,
+	DeleteGroupInput,
+	DeleteLayerInput,
+	EditEventInput,
+	EditGroupInput,
+	EditLayerInput,
+} from "@/utils/chatTools";
 import { loadEvents } from "@/utils/migrate";
 import { geocodeAddress } from "@/utils/geocode";
 
@@ -59,6 +75,8 @@ export default function Home() {
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const openaiApiKey = useOpenaiApiKey();
 	const eventsRef = useRef(events);
+	const groupsRef = useRef(groups);
+	const layersRef = useRef(layers);
 	// The add form's last address lookup, reused until the address changes (e.g. blur then submit)
 	const formLookup = useRef<{
 		address: string;
@@ -74,6 +92,14 @@ export default function Home() {
 	useEffect(() => {
 		eventsRef.current = events;
 	}, [events]);
+
+	useEffect(() => {
+		groupsRef.current = groups;
+	}, [groups]);
+
+	useEffect(() => {
+		layersRef.current = layers;
+	}, [layers]);
 
 	useEffect(() => {
 		window.addEventListener("pagehide", flushAllUpdates);
@@ -120,10 +146,11 @@ export default function Home() {
 		eventsSync.deleteEvent(id);
 	}
 
-	function addGroup() {
-		const group: MapGroup = { id: newId(), name: "", visible: true };
+	function addGroup(fields: Partial<Omit<MapGroup, "id">> = {}): MapGroup {
+		const group: MapGroup = { name: "", visible: true, ...fields, id: newId() };
 		setGroups((prev) => [...prev, group]);
 		groupsSync.createGroup(group);
+		return group;
 	}
 
 	function updateGroup(id: number, changes: Partial<MapGroup>) {
@@ -144,10 +171,14 @@ export default function Home() {
 		groupsSync.deleteGroup(id);
 	}
 
-	function addLayer(groupId: number) {
-		const layer: Layer = { id: newId(), groupId, name: "", visible: true };
+	function addLayer(
+		groupId: number,
+		fields: Partial<Omit<Layer, "id" | "groupId">> = {},
+	): Layer {
+		const layer: Layer = { name: "", visible: true, ...fields, id: newId(), groupId };
 		setLayers((prev) => [...prev, layer]);
 		groupsSync.createLayer(layer);
+		return layer;
 	}
 
 	function updateLayer(id: number, changes: Partial<Layer>) {
@@ -291,6 +322,29 @@ export default function Home() {
 			// The AI SDK has already checked each input against the schemas in utils/chatTools.ts
 			if (toolCall.toolName === "addEvent") {
 				const input = toolCall.input as AddEventInput;
+				if (
+					input.groupId !== undefined &&
+					!groupsRef.current.some((group) => group.id === input.groupId)
+				) {
+					respond(`No group with id ${input.groupId}`);
+					return;
+				}
+				if (
+					input.layerId !== undefined &&
+					!layersRef.current.some((layer) => layer.id === input.layerId)
+				) {
+					respond(`No layer with id ${input.layerId}`);
+					return;
+				}
+				// A layer's own group wins over a separately given group
+				const placement = parsePlacementValue(
+					input.layerId !== undefined
+						? `l:${input.layerId}`
+						: input.groupId !== undefined
+							? `g:${input.groupId}`
+							: "",
+					layersRef.current,
+				);
 				const event = addEvent({
 					name: input.name,
 					date: input.date,
@@ -300,6 +354,7 @@ export default function Home() {
 					iconColor: input.iconColor ?? "grey",
 					description: input.description,
 					address: input.address,
+					...placement,
 				});
 				respond(
 					event
@@ -318,6 +373,22 @@ export default function Home() {
 				if (input.address !== undefined) changes.address = input.address;
 				if (input.latitude !== undefined) changes.lat = input.latitude;
 				if (input.longitude !== undefined) changes.lng = input.longitude;
+				if (input.icon !== undefined) changes.icon = input.icon;
+				if (input.iconColor !== undefined) changes.iconColor = input.iconColor;
+				if (input.groupId !== undefined) {
+					if (!groupsRef.current.some((group) => group.id === input.groupId)) {
+						respond(`No group with id ${input.groupId}`);
+						return;
+					}
+					changes.groupId = input.groupId;
+				}
+				if (input.layerId !== undefined) {
+					if (!layersRef.current.some((layer) => layer.id === input.layerId)) {
+						respond(`No layer with id ${input.layerId}`);
+						return;
+					}
+					changes.layerId = input.layerId;
+				}
 				if (input.date !== undefined) {
 					const parsed = parseNzDate(input.date);
 					if (!parsed) {
@@ -345,8 +416,73 @@ export default function Home() {
 					date: formatNzDate(event.date),
 					latitude: event.lat,
 					longitude: event.lng,
+					groupId: event.groupId,
+					layerId: event.layerId,
 				}));
 				respond(JSON.stringify(list));
+			} else if (toolCall.toolName === "listGroups") {
+				const list = groupsRef.current.map((group) => ({
+					id: group.id,
+					name: group.name,
+					visible: group.visible,
+					layers: layersRef.current
+						.filter((layer) => layer.groupId === group.id)
+						.map((layer) => ({ id: layer.id, name: layer.name, visible: layer.visible })),
+				}));
+				respond(JSON.stringify(list));
+			} else if (toolCall.toolName === "addGroup") {
+				const input = toolCall.input as AddGroupInput;
+				const group = addGroup({ name: input.name, visible: input.visible ?? true });
+				respond(`Added group "${group.name}" with id ${group.id}`);
+			} else if (toolCall.toolName === "editGroup") {
+				const input = toolCall.input as EditGroupInput;
+				if (!groupsRef.current.some((group) => group.id === input.id)) {
+					respond(`No group with id ${input.id}`);
+					return;
+				}
+				const changes: Partial<MapGroup> = {};
+				if (input.name !== undefined) changes.name = input.name;
+				if (input.visible !== undefined) changes.visible = input.visible;
+				updateGroup(input.id, changes);
+				respond(`Edited group ${input.id}`);
+			} else if (toolCall.toolName === "deleteGroup") {
+				const input = toolCall.input as DeleteGroupInput;
+				if (!groupsRef.current.some((group) => group.id === input.id)) {
+					respond(`No group with id ${input.id}`);
+					return;
+				}
+				deleteGroup(input.id);
+				respond(`Deleted group ${input.id}`);
+			} else if (toolCall.toolName === "addLayer") {
+				const input = toolCall.input as AddLayerInput;
+				if (!groupsRef.current.some((group) => group.id === input.groupId)) {
+					respond(`No group with id ${input.groupId}`);
+					return;
+				}
+				const layer = addLayer(input.groupId, {
+					name: input.name,
+					visible: input.visible ?? true,
+				});
+				respond(`Added layer "${layer.name}" with id ${layer.id}`);
+			} else if (toolCall.toolName === "editLayer") {
+				const input = toolCall.input as EditLayerInput;
+				if (!layersRef.current.some((layer) => layer.id === input.id)) {
+					respond(`No layer with id ${input.id}`);
+					return;
+				}
+				const changes: Partial<Layer> = {};
+				if (input.name !== undefined) changes.name = input.name;
+				if (input.visible !== undefined) changes.visible = input.visible;
+				updateLayer(input.id, changes);
+				respond(`Edited layer ${input.id}`);
+			} else if (toolCall.toolName === "deleteLayer") {
+				const input = toolCall.input as DeleteLayerInput;
+				if (!layersRef.current.some((layer) => layer.id === input.id)) {
+					respond(`No layer with id ${input.id}`);
+					return;
+				}
+				deleteLayer(input.id);
+				respond(`Deleted layer ${input.id}`);
 			} else if (toolCall.toolName === "geoLookup") {
 				// Executed on the server (OpenStreetMap), output arrives in the stream
 				return;
@@ -473,7 +609,7 @@ export default function Home() {
 									<div className="flex flex-row justify-end">
 										<button
 											className="border border-line rounded-md mt-2 mx-2 px-2 w-full"
-											onClick={addGroup}
+											onClick={() => addGroup()}
 										>
 											+ Group
 										</button>
