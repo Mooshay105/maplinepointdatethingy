@@ -67,6 +67,7 @@ export default function Home() {
 	const [layers, setLayers] = useState<Layer[]>([]);
 	const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
+	const [hoveredEventId, setHoveredEventId] = useState<number | null>(null);
 	const [selectedTab, setSelectedTab] = useState<"events" | "chat">("events");
 	const [settings, setSettings] = useState({ alwaysShowHoverMenus: false });
 	const [copied, setCopied] = useState(false);
@@ -578,6 +579,7 @@ export default function Home() {
 				onDelete={deleteEvent}
 				groups={groups}
 				layers={layers}
+				highlightedId={hoveredEventId}
 			/>
 			<div className="fixed top-0 left-0 h-full w-1/4 bg-panel border-r border-line text-panel-foreground p-2 overflow-y-auto">
 				<div className="fixed top-0 left-0 w-1/4 px-2 flex flex-row justify-between border-b border-r border-line bg-panel">
@@ -624,6 +626,7 @@ export default function Home() {
 										onAddLayer={addLayer}
 										onUpdateLayer={updateLayer}
 										onDeleteLayer={deleteLayer}
+										onHoverEvent={setHoveredEventId}
 									/>
 								</>
 							) : (

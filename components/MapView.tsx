@@ -69,6 +69,19 @@ async function iconUrl(icon: EventIcon, color: EventColor): Promise<string> {
 /** How long a hover menu lingers after the mouse leaves, so it can travel from the marker into the menu. */
 const HOVER_HIDE_DELAY_MS = 250;
 
+const MARKER_SIZE = 20;
+/** A highlighted marker (e.g. its event is hovered in the sidebar) is drawn bigger and on top. */
+const HIGHLIGHTED_MARKER_SIZE = 32;
+
+function markerIcon(google: any, url: string, highlighted: boolean) {
+	const size = highlighted ? HIGHLIGHTED_MARKER_SIZE : MARKER_SIZE;
+	return {
+		url,
+		scaledSize: new google.maps.Size(size, size),
+		anchor: new google.maps.Point(size / 2, size / 2),
+	};
+}
+
 export default function MapView({
 	events,
 	fullScreen,
@@ -77,6 +90,7 @@ export default function MapView({
 	onDelete,
 	groups,
 	layers,
+	highlightedId = null,
 }: {
 	events: MapEvent[];
 	fullScreen?: boolean;
@@ -86,10 +100,15 @@ export default function MapView({
 	/** For the hover menus' group picker. */
 	groups?: MapGroup[];
 	layers?: Layer[];
+	/** Event whose marker to make stand out, e.g. while it's hovered in the sidebar. */
+	highlightedId?: number | null;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<any>(null);
 	const overlaysRef = useRef<any[]>([]);
+	const markersRef = useRef(new Map<number, { marker: any; url: string }>());
+	// Markers load asynchronously, so new ones read the current highlight through a ref
+	const highlightedIdRef = useRef(highlightedId);
 	const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const [map, setMap] = useState<any>(null);
 	const [hoveredId, setHoveredId] = useState<number | null>(null);
@@ -135,6 +154,7 @@ export default function MapView({
 
 			overlaysRef.current.forEach((o) => o.setMap(null));
 			overlaysRef.current = [];
+			markersRef.current.clear();
 
 			events.forEach(async (event) => {
 				const url = await iconUrl(event.icon, event.iconColor);
@@ -146,12 +166,10 @@ export default function MapView({
 					map,
 					// Dragging moves the event; the address is left as typed
 					draggable,
-					icon: {
-						url,
-						scaledSize: new google.maps.Size(20, 20),
-						anchor: new google.maps.Point(10, 10),
-					},
+					icon: markerIcon(google, url, event.id === highlightedIdRef.current),
+					zIndex: event.id === highlightedIdRef.current ? google.maps.Marker.MAX_ZINDEX : undefined,
 				});
+				markersRef.current.set(event.id, { marker, url });
 				marker.addListener("mouseover", () => showMenu(event.id));
 				marker.addListener("mouseout", hideMenuSoon);
 				marker.addListener("click", () => showMenu(event.id));
@@ -196,6 +214,25 @@ export default function MapView({
 		};
 	}, [events, draggable]);
 
+	useEffect(() => {
+		const previous = highlightedIdRef.current;
+		highlightedIdRef.current = highlightedId;
+		const google = (window as any).google;
+		if (!google?.maps) return;
+		const old = previous !== null ? markersRef.current.get(previous) : undefined;
+		if (old) {
+			old.marker.setIcon(markerIcon(google, old.url, false));
+			old.marker.setZIndex(undefined);
+		}
+		const next = highlightedId !== null ? markersRef.current.get(highlightedId) : undefined;
+		if (next) {
+			next.marker.setIcon(markerIcon(google, next.url, true));
+			next.marker.setZIndex(google.maps.Marker.MAX_ZINDEX);
+		}
+	}, [highlightedId]);
+
+	const highlightedEvent = events.find((event) => event.id === highlightedId);
+
 	const menuEvents = events.filter(
 		(event) => alwaysShowHoverMenus || event.id === hoveredId || event.id === focusedId,
 	);
@@ -203,6 +240,18 @@ export default function MapView({
 	return (
 		<>
 			<div ref={ref} className={`ml-auto ${fullScreen ? "w-full" : "w-3/4"} h-dvh`} />
+			{map && highlightedEvent ? (
+				<MapAnchor
+					key={`highlight-${highlightedEvent.id}`}
+					map={map}
+					lat={highlightedEvent.lat}
+					lng={highlightedEvent.lng}
+					raised={false}
+				>
+					{/* A pulsing ring around the marker so it's easy to spot */}
+					<div className="absolute -left-5 -top-5 w-10 h-10 rounded-full border-2 border-white animate-ping pointer-events-none" />
+				</MapAnchor>
+			) : null}
 			{map
 				? menuEvents.map((event) => (
 						<MapAnchor

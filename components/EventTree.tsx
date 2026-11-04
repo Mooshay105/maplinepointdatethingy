@@ -18,6 +18,7 @@ export default function EventTree({
 	onAddLayer,
 	onUpdateLayer,
 	onDeleteLayer,
+	onHoverEvent,
 }: {
 	events: MapEvent[];
 	groups: MapGroup[];
@@ -29,20 +30,27 @@ export default function EventTree({
 	onAddLayer: (groupId: number) => void;
 	onUpdateLayer: (id: number, changes: Partial<Layer>) => void;
 	onDeleteLayer: (id: number) => void;
+	/** Called with an event's id when the mouse enters it, and null when it leaves. */
+	onHoverEvent?: (id: number | null) => void;
 }) {
 	const placed = events.map((event) => ({ event, ...placementOf(event, groups, layers) }));
 
 	function renderEvents(filter: (p: (typeof placed)[number]) => boolean) {
 		return placed.filter(filter).map(({ event }) => (
-			<EventEditor
+			<div
 				key={event.id}
-				event={event}
-				onUpdate={onUpdateEvent}
-				onDelete={onDeleteEvent}
-				groups={groups}
-				layers={layers}
-				className="border border-line rounded-xl m-2"
-			/>
+				onMouseEnter={() => onHoverEvent?.(event.id)}
+				onMouseLeave={() => onHoverEvent?.(null)}
+			>
+				<EventEditor
+					event={event}
+					onUpdate={onUpdateEvent}
+					onDelete={onDeleteEvent}
+					groups={groups}
+					layers={layers}
+					className="border border-line rounded-xl m-2"
+				/>
+			</div>
 		));
 	}
 
