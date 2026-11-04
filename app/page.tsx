@@ -21,7 +21,7 @@ import { useChat } from "@ai-sdk/react";
 import { Show, SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 import * as eventsSync from "@/utils/eventsSync";
 import * as groupsSync from "@/utils/groupsSync";
-import { flushAllUpdates, newId } from "@/utils/sync";
+import { flushAllUpdates, hasUnsavedChanges, newId } from "@/utils/sync";
 import {
 	isShownOnMap,
 	parsePlacementValue,
@@ -101,8 +101,17 @@ export default function Home() {
 	}, [layers]);
 
 	useEffect(() => {
+		// Ask before leaving while changes are still saving, since requests cut off by the reload are lost
+		function warnIfUnsaved(e: BeforeUnloadEvent) {
+			flushAllUpdates();
+			if (hasUnsavedChanges()) e.preventDefault();
+		}
+		window.addEventListener("beforeunload", warnIfUnsaved);
 		window.addEventListener("pagehide", flushAllUpdates);
-		return () => window.removeEventListener("pagehide", flushAllUpdates);
+		return () => {
+			window.removeEventListener("beforeunload", warnIfUnsaved);
+			window.removeEventListener("pagehide", flushAllUpdates);
+		};
 	}, []);
 
 	useEffect(() => {
