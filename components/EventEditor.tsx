@@ -74,14 +74,14 @@ export default function EventEditor({
 		<div className={className}>
 			<div className="flex flex-row">
 				<input
-					className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
+					className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
 					value={event.name}
 					readOnly={readOnly}
 					onChange={(e) => update({ name: e.target.value })}
 					placeholder="Name"
 				/>
 				<input
-					className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2 min-w-0"
+					className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2 min-w-0"
 					value={drafts.date ?? formatNzDate(event.date)}
 					readOnly={readOnly}
 					onChange={(e) => setDrafts((prev) => ({ ...prev, date: e.target.value }))}
@@ -97,7 +97,7 @@ export default function EventEditor({
 				/>
 				{onUpdate ? (
 					<button
-						className="border border-line rounded-md mt-2 mr-2 px-1"
+						className="h-8 border border-line rounded-md mt-2 mr-2 px-1"
 						title={event.visible ? "Hide" : "Show"}
 						aria-label={event.visible ? "Hide event" : "Show event"}
 						onClick={() => update({ visible: !event.visible })}
@@ -108,7 +108,7 @@ export default function EventEditor({
 			</div>
 			{readOnly && !event.address ? null : (
 				<input
-					className={`block border rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)] ${lookupFailed ? "border-danger" : "border-line"}`}
+					className={`block h-8 border rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)] ${lookupFailed ? "border-danger" : "border-line"}`}
 					value={event.address}
 					readOnly={readOnly}
 					title={lookupFailed ? "Couldn't find this address" : undefined}
@@ -127,7 +127,7 @@ export default function EventEditor({
 			)}
 			<div className="flex flex-row">
 				<input
-					className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
+					className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
 					value={drafts.lat ?? event.lat}
 					readOnly={readOnly}
 					onChange={(e) => updateCoordinate("lat", e.target.value)}
@@ -135,7 +135,7 @@ export default function EventEditor({
 					placeholder="Latitude"
 				/>
 				<input
-					className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2 min-w-0"
+					className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2 min-w-0"
 					value={drafts.lng ?? event.lng}
 					readOnly={readOnly}
 					onChange={(e) => updateCoordinate("lng", e.target.value)}
@@ -144,7 +144,7 @@ export default function EventEditor({
 				/>
 				{onDelete ? (
 					<button
-						className="border border-line rounded-md mt-2 mr-2 px-1"
+						className="h-8 border border-line rounded-md mt-2 mr-2 px-1"
 						title="Delete"
 						aria-label="Delete event"
 						onClick={() => onDelete(event.id)}
@@ -155,7 +155,7 @@ export default function EventEditor({
 			</div>
 			<div className="flex flex-row">
 				<select
-					className="border border-line bg-panel rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
+					className="h-8 border border-line bg-panel rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
 					value={event.icon}
 					disabled={readOnly}
 					onChange={(e) => update({ icon: e.target.value as EventIcon })}
@@ -167,8 +167,11 @@ export default function EventEditor({
 					))}
 				</select>
 				<ColorSelect
-					className="mt-2 ml-1 mr-2 w-1/2 min-w-0"
-					selectClassName="border border-line bg-panel rounded-md px-2"
+					// "contents" puts the dropdown and swatch straight into this row, so they line up
+					// with the lat/lng inputs and delete button above
+					className="contents"
+					selectClassName="h-8 border border-line bg-panel rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+					swatchClassName="mt-2 mr-2"
 					value={event.iconColor}
 					disabled={readOnly}
 					onChange={(iconColor) => update({ iconColor })}
@@ -176,7 +179,7 @@ export default function EventEditor({
 			</div>
 			{groups && !readOnly ? (
 				<PlacementSelect
-					className="block border border-line bg-panel rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)]"
+					className="block h-8 border border-line bg-panel rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)]"
 					value={event}
 					groups={groups}
 					layers={layers}

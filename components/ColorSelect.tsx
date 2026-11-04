@@ -1,6 +1,12 @@
 "use client";
 
-import { COLOR_LABELS, colorHex, EVENT_COLORS, EventColor, isPresetColor } from "@/utils/types";
+import {
+	COLOR_LABELS,
+	colorHex,
+	EVENT_COLORS,
+	EventColor,
+	isPresetColor,
+} from "@/utils/types";
 
 const CUSTOM = "custom";
 
@@ -9,22 +15,24 @@ export default function ColorSelect({
 	value,
 	onChange,
 	disabled,
-	className = "",
-	selectClassName = "",
+	className = "flex flex-row items-stretch gap-2",
+	selectClassName = "flex-1",
+	swatchClassName = "",
 }: {
 	value: EventColor;
 	onChange: (color: EventColor) => void;
 	disabled?: boolean;
-	/** For the wrapper holding the dropdown and the swatch. */
+	/** For the wrapper holding the dropdown and the swatch. Use "contents" to lay them out in the parent's row instead. */
 	className?: string;
 	selectClassName?: string;
+	swatchClassName?: string;
 }) {
 	const preset = isPresetColor(value);
 
 	return (
-		<div className={`flex flex-row items-stretch gap-1 ${className}`}>
+		<div className={className}>
 			<select
-				className={`flex-1 min-w-0 ${selectClassName}`}
+				className={`min-w-0 ${selectClassName}`}
 				value={preset ? value : CUSTOM}
 				disabled={disabled}
 				onChange={(e) => {
@@ -44,7 +52,7 @@ export default function ColorSelect({
 				type="color"
 				aria-label="Custom colour"
 				title="Custom colour"
-				className="w-7 shrink-0 cursor-pointer rounded-md border border-line bg-transparent disabled:cursor-default"
+				className={`h-8 w-8.5 shrink-0 cursor-pointer rounded-md border border-line bg-transparent disabled:cursor-default ${swatchClassName}`}
 				value={colorHex(value)}
 				disabled={disabled}
 				onChange={(e) => onChange(e.target.value as EventColor)}

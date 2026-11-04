@@ -662,7 +662,7 @@ export default function Home() {
 				</div>
 				{selectedTab === "events" ? (
 					<div>
-						<div className="mb-52 mt-7">
+						<div className="mb-64 mt-7">
 							{!authLoaded ? (
 								<div className="text-center">Loading...</div>
 							) : !isSignedIn ? (
@@ -708,13 +708,13 @@ export default function Home() {
 								<div className="flex flex-col">
 									<div className="flex flex-row">
 										<input
-											className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+											className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
 											value={name}
 											onChange={(e) => setName(e.target.value)}
 											placeholder="Name"
 										/>
 										<input
-											className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+											className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
 											value={date}
 											onChange={(e) => setDate(e.target.value)}
 											placeholder="Date (DD/MM/YYYY)"
@@ -722,7 +722,7 @@ export default function Home() {
 									</div>
 
 									<input
-										className="border border-line rounded-md mt-2 mx-2 px-2"
+										className="h-8 border border-line rounded-md mt-2 mx-2 px-2"
 										value={address}
 										onChange={(e) => setAddress(e.target.value)}
 										onBlur={lookUpFormAddress}
@@ -730,13 +730,13 @@ export default function Home() {
 									/>
 									<div className="flex flex-row">
 										<input
-											className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+											className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
 											value={lat}
 											onChange={(e) => setLat(e.target.value)}
 											placeholder="Latitude"
 										/>
 										<input
-											className="border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+											className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
 											value={lng}
 											onChange={(e) => setLng(e.target.value)}
 											placeholder="Longitude"
@@ -744,7 +744,7 @@ export default function Home() {
 									</div>
 									<div className="flex flex-row">
 										<select
-											className="border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
+											className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
 											value={icon}
 											onChange={(e) => setIcon(e.target.value as EventIcon)}
 										>
@@ -755,14 +755,14 @@ export default function Home() {
 											))}
 										</select>
 										<ColorSelect
-											className="mt-2 ml-1 mr-2 w-1/2"
-											selectClassName="border border-line rounded-md px-2"
+											className="flex flex-row items-stretch gap-2 mt-2 ml-1 mr-2 w-1/2"
+											selectClassName="flex-1 h-8 border border-line rounded-md px-2"
 											value={color}
 											onChange={setColor}
 										/>
 									</div>
 									<PlacementSelect
-										className="border border-line bg-panel rounded-md mt-2 mx-2 px-2"
+										className="h-8 border border-line bg-panel rounded-md mt-2 mx-2 px-2"
 										value={placement}
 										groups={groups}
 										layers={layers}
@@ -770,7 +770,7 @@ export default function Home() {
 									/>
 									<button
 										type="submit"
-										className="border border-line rounded-md mt-2 mb-2 mx-2 px-2"
+										className="h-8 border border-line rounded-md mt-2 mb-2 mx-2 px-2"
 									>
 										Add
 									</button>
