@@ -7,7 +7,7 @@ function toWire(fields: Partial<MapEvent>): Record<string, unknown> {
 	return fields.date ? { ...fields, date: fields.date.getTime() } : fields;
 }
 
-const sync = createSync<MapEvent>("/api/events", "event", toWire);
+const sync = createSync<MapEvent>("/api/events", "event", toWire, true);
 
 /** Loads the signed-in user's events, or another user's when given their id (for the share page). */
 export async function fetchEvents(userId?: string): Promise<MapEvent[]> {
