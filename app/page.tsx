@@ -21,7 +21,7 @@ import { useChat } from "@ai-sdk/react";
 import { Show, SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 import * as eventsSync from "@/utils/eventsSync";
 import * as groupsSync from "@/utils/groupsSync";
-import { flushAllUpdates, newId } from "@/utils/sync";
+import { flushAllUpdates, hasUnsavedChanges, newId } from "@/utils/sync";
 import {
 	isShownOnMap,
 	parsePlacementValue,
@@ -41,6 +41,7 @@ import {
 	EditEventInput,
 	EditGroupInput,
 	EditLayerInput,
+	SetVisibilityInput,
 } from "@/utils/chatTools";
 import { loadEvents } from "@/utils/migrate";
 import { geocodeAddress } from "@/utils/geocode";
@@ -102,8 +103,17 @@ export default function Home() {
 	}, [layers]);
 
 	useEffect(() => {
+		// Ask before leaving while changes are still saving, since requests cut off by the reload are lost
+		function warnIfUnsaved(e: BeforeUnloadEvent) {
+			flushAllUpdates();
+			if (hasUnsavedChanges()) e.preventDefault();
+		}
+		window.addEventListener("beforeunload", warnIfUnsaved);
 		window.addEventListener("pagehide", flushAllUpdates);
-		return () => window.removeEventListener("pagehide", flushAllUpdates);
+		return () => {
+			window.removeEventListener("beforeunload", warnIfUnsaved);
+			window.removeEventListener("pagehide", flushAllUpdates);
+		};
 	}, []);
 
 	useEffect(() => {
@@ -139,6 +149,28 @@ export default function Home() {
 				: next;
 		});
 		eventsSync.updateEvent(id, changes);
+	}
+
+	/** Shows or hides many events, groups and layers at once. */
+	function setVisibility(
+		visible: boolean,
+		ids: { eventIds: number[]; groupIds: number[]; layerIds: number[] },
+	) {
+		const eventIds = new Set(ids.eventIds);
+		const groupIds = new Set(ids.groupIds);
+		const layerIds = new Set(ids.layerIds);
+		setEvents((prev) =>
+			prev.map((event) => (eventIds.has(event.id) ? { ...event, visible } : event)),
+		);
+		setGroups((prev) =>
+			prev.map((group) => (groupIds.has(group.id) ? { ...group, visible } : group)),
+		);
+		setLayers((prev) =>
+			prev.map((layer) => (layerIds.has(layer.id) ? { ...layer, visible } : layer)),
+		);
+		for (const id of eventIds) eventsSync.updateEvent(id, { visible });
+		for (const id of groupIds) groupsSync.updateGroup(id, { visible });
+		for (const id of layerIds) groupsSync.updateLayer(id, { visible });
 	}
 
 	function deleteEvent(id: number) {
@@ -416,6 +448,7 @@ export default function Home() {
 					date: formatNzDate(event.date),
 					latitude: event.lat,
 					longitude: event.lng,
+					visible: event.visible,
 					groupId: event.groupId,
 					layerId: event.layerId,
 				}));
@@ -483,6 +516,37 @@ export default function Home() {
 				}
 				deleteLayer(input.id);
 				respond(`Deleted layer ${input.id}`);
+			} else if (toolCall.toolName === "hideItems" || toolCall.toolName === "showItems") {
+				const input = toolCall.input as SetVisibilityInput;
+				const visible = toolCall.toolName === "showItems";
+				const eventIds = input.allEvents
+					? eventsRef.current.map((event) => event.id)
+					: (input.eventIds ?? []);
+				const groupIds = input.groupIds ?? [];
+				const layerIds = input.layerIds ?? [];
+				const missing = [
+					...eventIds
+						.filter((id) => !eventsRef.current.some((event) => event.id === id))
+						.map((id) => `event ${id}`),
+					...groupIds
+						.filter((id) => !groupsRef.current.some((group) => group.id === id))
+						.map((id) => `group ${id}`),
+					...layerIds
+						.filter((id) => !layersRef.current.some((layer) => layer.id === id))
+						.map((id) => `layer ${id}`),
+				];
+				if (missing.length > 0) {
+					respond(`Nothing changed. These don't exist: ${missing.join(", ")}`);
+					return;
+				}
+				if (eventIds.length + groupIds.length + layerIds.length === 0) {
+					respond("Nothing changed, no ids were given");
+					return;
+				}
+				setVisibility(visible, { eventIds, groupIds, layerIds });
+				respond(
+					`${visible ? "Showed" : "Hid"} ${eventIds.length} events, ${groupIds.length} groups and ${layerIds.length} layers`,
+				);
 			} else if (toolCall.toolName === "geoLookup") {
 				// Executed on the server (OpenStreetMap), output arrives in the stream
 				return;
