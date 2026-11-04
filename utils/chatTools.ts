@@ -88,7 +88,24 @@ export const deleteLayerInput = z.object({
 	id: z.number().describe("The id of the layer"),
 });
 
-export type AddEventInput = z.infer<typeof addEventInput>;
+/** Shared by hideItems and showItems. */
+export const setVisibilityInput = z.object({
+	eventIds: z.array(z.number()).optional().describe("The ids of the events"),
+	groupIds: z
+		.array(z.number())
+		.optional()
+		.describe("The ids of the groups. This affects everything inside them on the map."),
+	layerIds: z
+		.array(z.number())
+		.optional()
+		.describe("The ids of the layers. This affects every event inside them on the map."),
+	allEvents: z
+		.boolean()
+		.optional()
+		.describe("Set to true to apply this to every event, instead of listing their ids"),
+});
+
+export type AddEventInput =z.infer<typeof addEventInput>;
 export type EditEventInput = z.infer<typeof editEventInput>;
 export type DeleteEventInput = z.infer<typeof deleteEventInput>;
 export type AddGroupInput = z.infer<typeof addGroupInput>;
@@ -97,3 +114,4 @@ export type DeleteGroupInput = z.infer<typeof deleteGroupInput>;
 export type AddLayerInput = z.infer<typeof addLayerInput>;
 export type EditLayerInput = z.infer<typeof editLayerInput>;
 export type DeleteLayerInput = z.infer<typeof deleteLayerInput>;
+export type SetVisibilityInput = z.infer<typeof setVisibilityInput>;
