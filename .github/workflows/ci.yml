@@ -14,7 +14,7 @@ jobs:
     env:
       # Placeholders so `next build` can load the routes without real credentials.
       # The build never connects to either service.
-      TURSO_DATABASE_URL: file::memory:
+      TURSO_DATABASE_URL: "file::memory:"
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
       CLERK_SECRET_KEY: sk_test_placeholder
     steps:
