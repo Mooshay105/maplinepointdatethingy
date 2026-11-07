@@ -120,7 +120,7 @@ function Folder({
 					<ChevronIcon open={open} size={18} />
 				</button>
 				<input
-					className={`field flex-1 border-transparent border-b-field-line/50 bg-transparent px-1.5 font-display font-semibold hover:border-field-line focus-visible:border-accent ${kind === "group" ? "text-lg" : "text-base"} ${folder.visible ? "" : "text-muted"}`}
+					className={`field flex-1 border-transparent border-b-field-line/50 bg-transparent px-1.5 font-display font-semibold hover:border-field-line focus-visible:border-accent ${kind === "group" ? "text-lg" : "text-[0.9375rem]"} ${folder.visible ? "" : "text-muted"}`}
 					aria-label={kind === "group" ? "Group name" : "Layer name"}
 					value={folder.name}
 					onChange={(e) => onUpdate({ name: e.target.value })}

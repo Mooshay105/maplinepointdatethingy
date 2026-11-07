@@ -816,7 +816,7 @@ export default function Home() {
 										url="settings"
 									>
 										<div className="flex flex-col">
-											<h1 className="text-[17px] font-bold">Settings</h1>
+											<h2 className="text-[17px] font-bold">Settings</h2>
 											<div className="border-b border-current/15 mt-3.75 mb-5" />
 											<label className="flex flex-row items-center gap-1 text-[13px]">
 												<input
@@ -874,7 +874,7 @@ export default function Home() {
 													Clear
 												</button>
 											</div>
-											<p className="text-[11px] opacity-70 mt-1">
+											<p className="text-xs opacity-75 mt-1">
 												Stored only in this browser&apos;s local storage. It&apos;s sent with
 												each chat request to reach OpenAI, but never saved on the server.
 											</p>
@@ -902,8 +902,7 @@ export default function Home() {
 								id={`tab-${tab.id}`}
 								role="tab"
 								aria-selected={selectedTab === tab.id}
-								// Only the shown panel exists, so only its tab points at it
-								aria-controls={selectedTab === tab.id ? `panel-${tab.id}` : undefined}
+								aria-controls={`panel-${tab.id}`}
 								tabIndex={selectedTab === tab.id ? 0 : -1}
 								className={`relative z-10 -mb-0.5 border-b-2 pt-1 pb-2 font-display text-lg font-semibold ${selectedTab === tab.id ? "border-accent text-panel-foreground" : "border-transparent text-muted hover:text-panel-foreground"}`}
 								onClick={() => setSelectedTab(tab.id)}
@@ -918,11 +917,13 @@ export default function Home() {
 					aria-hidden="true"
 					className="h-[10px] shrink-0 border-t-2 border-panel-foreground/40 bg-[linear-gradient(to_bottom,transparent_4px,rgb(238_242_252/0.25)_4px,rgb(238_242_252/0.25)_6px,transparent_6px)]"
 				/>
-				{selectedTab === "events" ? (
+				{/* Both panels stay mounted, so switching tabs keeps the list's scroll and a half-typed message */}
+				<>
 					<div
 						id="panel-events"
 						role="tabpanel"
 						aria-labelledby="tab-events"
+						hidden={selectedTab !== "events"}
 						className="flex min-h-0 flex-1 flex-col"
 					>
 						{/* On phones an open add form takes the list's place, as there's no room for both */}
@@ -1026,7 +1027,7 @@ export default function Home() {
 										aria-label="Date, DD/MM/YYYY. Leave empty for today."
 										value={date}
 										onChange={(e) => setDate(e.target.value)}
-										placeholder="DD/MM/YYYY"
+										placeholder="DD/MM/YYYY, or blank for today"
 									/>
 									<input
 										className="field col-span-2"
@@ -1087,11 +1088,11 @@ export default function Home() {
 							</form>
 						) : null}
 					</div>
-				) : (
 					<div
 						id="panel-chat"
 						role="tabpanel"
 						aria-labelledby="tab-chat"
+						hidden={selectedTab !== "chat"}
 						className="flex min-h-0 flex-1 flex-col"
 					>
 						<Chat
@@ -1103,7 +1104,7 @@ export default function Home() {
 							error={error}
 						/>
 					</div>
-				)}
+				</>
 			</aside>
 			<MapView
 				events={visibleEvents}
@@ -1114,6 +1115,8 @@ export default function Home() {
 				groups={groups}
 				layers={layers}
 				highlightedId={hoveredEventId}
+				// Smaller on phones while adding, so the form has room
+				compact={addFormOpen}
 			/>
 
 		</main>

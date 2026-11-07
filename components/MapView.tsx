@@ -119,6 +119,7 @@ export default function MapView({
 	groups,
 	layers,
 	highlightedId = null,
+	compact = false,
 }: {
 	events: MapEvent[];
 	fullScreen?: boolean;
@@ -132,6 +133,8 @@ export default function MapView({
 	layers?: Layer[];
 	/** Event whose marker to make stand out, e.g. while it's hovered in the sidebar. */
 	highlightedId?: number | null;
+	/** Shrinks the map on phones, e.g. while the sidebar needs the room. */
+	compact?: boolean;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<any>(null);
@@ -289,12 +292,12 @@ export default function MapView({
 		<>
 			{/* Beside the sidebar on wide screens, above it on phones (see app/page.tsx) */}
 			<div
-				className={`relative ${fullScreen ? "h-dvh w-full" : "h-[45dvh] shrink-0 md:h-full md:min-w-0 md:flex-1"}`}
+				className={`relative ${fullScreen ? "h-dvh w-full" : `${compact ? "h-[20dvh]" : "h-[35dvh]"} shrink-0 md:h-full md:min-w-0 md:flex-1`}`}
 			>
 				<div ref={ref} className="w-full h-full" />
 				{map ? (
 					<button
-						className="absolute right-3 bottom-8 flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm font-medium text-panel-foreground shadow-md shadow-black/40 hover:bg-panel-raised"
+						className="panel-scheme absolute right-3 bottom-8 flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm font-medium text-panel-foreground shadow-md shadow-black/40 hover:bg-panel-raised"
 						aria-pressed={satellite}
 						title={satellite ? "Switch to the map view" : "Switch to the satellite view"}
 						onClick={toggleSatellite}

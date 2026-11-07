@@ -115,7 +115,7 @@ export default function EventEditor({
 				<span
 					aria-hidden="true"
 					// Hollow while the event is hidden from the map
-					className={`h-3 w-3 shrink-0 rounded-full border-2 ${canCollapse ? "" : "ml-1"} ${event.visible ? "" : "opacity-60"}`}
+					className={`h-3 w-3 shrink-0 rounded-full border-2 ring-1 ring-panel-foreground/50 ${canCollapse ? "" : "ml-1"} ${event.visible ? "" : "opacity-60"}`}
 					style={{
 						borderColor: colorHex(event.iconColor),
 						background: event.visible ? colorHex(event.iconColor) : "transparent",

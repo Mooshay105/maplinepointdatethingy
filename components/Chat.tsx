@@ -27,9 +27,14 @@ export default function Chat({
 	const { isSignedIn } = useUser();
 	const endRef = useRef<HTMLDivElement>(null);
 
-	// Keep the newest message in view as replies stream in
+	// Keep the newest message in view as replies stream in, unless you've scrolled up to read
 	useEffect(() => {
-		endRef.current?.scrollIntoView({ block: "end" });
+		const end = endRef.current;
+		const list = end?.parentElement;
+		if (!end || !list) return;
+		if (list.scrollHeight - list.scrollTop - list.clientHeight < 120) {
+			end.scrollIntoView({ block: "end" });
+		}
 	}, [messages]);
 
 	if (!isSignedIn)
@@ -77,7 +82,8 @@ export default function Chat({
 									return (
 										<div
 											key={`${message.id}-${i}`}
-											className="my-1 border-l-2 border-line pl-2 text-xs text-muted"
+											className="my-1 line-clamp-3 border-l-2 border-line pl-2 text-xs break-all text-muted"
+											title={output}
 										>
 											<span className="font-medium">{getToolName(part)}</span>:{" "}
 											{part.state === "output-available" ? output : part.state}
@@ -108,7 +114,7 @@ export default function Chat({
 				}}
 			>
 				<input
-					className="field h-9 flex-1"
+					className="field h-9 flex-1 pointer-coarse:h-11"
 					aria-label="Message"
 					value={input}
 					placeholder="Ask for a change"
@@ -116,7 +122,7 @@ export default function Chat({
 				/>
 				<button
 					type={isLoading ? "button" : "submit"}
-					className="button-primary w-9 px-0"
+					className="button-primary w-9 px-0 pointer-coarse:w-11"
 					aria-label={isLoading ? "Stop" : "Send"}
 					title={isLoading ? "Stop" : "Send"}
 					onClick={isLoading ? () => stop() : undefined}

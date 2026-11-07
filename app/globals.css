@@ -78,14 +78,18 @@ body {
 
 	/* The main action on screen */
 	.button-primary {
-		@apply inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-accent px-3 font-semibold text-accent-foreground;
+		@apply inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-accent px-3 font-semibold text-accent-foreground pointer-coarse:h-11;
 		@apply hover:brightness-105 active:brightness-95;
 	}
 }
 
-/* One focus ring for every control, shown for keyboard use only. Fields swap it for an accent border. */
+/*
+ * One focus ring for every control on the panels, shown for keyboard use only. Fields swap it for
+ * an accent border. Not inside Clerk's popup, where yellow would vanish on a light background.
+ */
 @layer base {
-	:focus-visible {
+	.panel-scheme :focus-visible,
+	.panel-scheme:focus-visible {
 		outline: 2px solid var(--color-accent);
 		outline-offset: 1px;
 	}
