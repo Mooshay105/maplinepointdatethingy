@@ -15,7 +15,7 @@ import {
 	MapGroup,
 	readableOn,
 } from "@/utils/types";
-import { daysBetween } from "@/utils/dates";
+import { daysBetween, formatNzDate } from "@/utils/dates";
 import EventEditor from "./EventEditor";
 import { LayersIcon } from "./Icons";
 
@@ -113,6 +113,7 @@ export default function MapView({
 	events,
 	fullScreen,
 	alwaysShowHoverMenus = false,
+	showDates = false,
 	onUpdate,
 	onDelete,
 	groups,
@@ -122,6 +123,8 @@ export default function MapView({
 	events: MapEvent[];
 	fullScreen?: boolean;
 	alwaysShowHoverMenus?: boolean;
+	/** Shows each event's date under its marker. */
+	showDates?: boolean;
 	onUpdate?: (id: number, changes: Partial<MapEvent>) => void;
 	onDelete?: (id: number) => void;
 	/** For the hover menus' group picker. */
@@ -332,6 +335,26 @@ export default function MapView({
 							</MapAnchor>
 						);
 					})
+				: null}
+			{map && showDates
+				? events.map((event) => (
+						<MapAnchor
+							key={`date-${event.id}`}
+							map={map}
+							lat={event.lat}
+							lng={event.lng}
+							raised={false}
+							// Below the hover menus, so a date never covers one
+							pane="overlayMouseTarget"
+						>
+							{/* Just under the marker, which is centred on the point (and bigger while highlighted) */}
+							<div
+								className={`absolute left-0 -translate-x-1/2 w-max bg-panel border border-line rounded-full text-panel-foreground text-[11px] font-medium shadow-md shadow-black/50 px-1.5 leading-4 pointer-events-none ${event.id === highlightedId ? "top-4.5" : "top-3"}`}
+							>
+								{formatNzDate(event.date)}
+							</div>
+						</MapAnchor>
+					))
 				: null}
 			{map
 				? menuEvents.map((event) => (

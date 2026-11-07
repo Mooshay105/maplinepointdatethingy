@@ -71,7 +71,7 @@ export default function Home() {
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [hoveredEventId, setHoveredEventId] = useState<number | null>(null);
 	const [selectedTab, setSelectedTab] = useState<"events" | "chat">("events");
-	const [settings, setSettings] = useState({ alwaysShowHoverMenus: false });
+	const [settings, setSettings] = useState({ alwaysShowHoverMenus: false, showDatesOnMap: false });
 	const [copied, setCopied] = useState(false);
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
@@ -637,6 +637,19 @@ export default function Home() {
 										/>
 										Always Show Hover Menus
 									</label>
+									<label className="flex flex-row items-center gap-1 text-[13px] mt-2">
+										<input
+											type="checkbox"
+											checked={settings.showDatesOnMap}
+											onChange={(e) =>
+												setSettings((prev) => ({
+													...prev,
+													showDatesOnMap: e.target.checked,
+												}))
+											}
+										/>
+										Show Dates on Map
+									</label>
 									<div className="border-b border-modal-line mt-3.75 mb-5" />
 									<label htmlFor="openai-api-key" className="text-[13px] font-medium">
 										OpenAI API Key
@@ -680,6 +693,7 @@ export default function Home() {
 			<MapView
 				events={visibleEvents}
 				alwaysShowHoverMenus={settings.alwaysShowHoverMenus}
+				showDates={settings.showDatesOnMap}
 				onUpdate={updateEvent}
 				onDelete={deleteEvent}
 				groups={groups}
