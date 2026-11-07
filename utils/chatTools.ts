@@ -44,12 +44,19 @@ export const editEventInput = z.object({
 	longitude: z.number().optional().describe("The longitude of the event"),
 	icon: z.enum(EVENT_ICONS).optional().describe("The icon to use for the event"),
 	iconColor: iconColorInput,
-	groupId: z.number().optional().describe("The id of the group this event belongs to"),
-	layerId: z
+	groupId: z
 		.number()
+		.nullable()
 		.optional()
 		.describe(
-			"The id of the layer this event belongs to. Its group is used automatically.",
+			"The id of the group to move the event into, directly (out of any layer). null takes it out of its group and layer.",
+		),
+	layerId: z
+		.number()
+		.nullable()
+		.optional()
+		.describe(
+			"The id of the layer to move the event into. Its group is used automatically and wins over groupId. null takes it out of its layer but keeps it in its group, unless groupId says otherwise.",
 		),
 	travelNote: z
 		.string()
