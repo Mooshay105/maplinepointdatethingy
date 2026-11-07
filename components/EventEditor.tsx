@@ -11,13 +11,14 @@ import {
 } from "@/utils/types";
 import { formatNzDate, parseNzDate } from "@/utils/dates";
 import { geocodeAddress } from "@/utils/geocode";
-import { ChevronIcon, EyeIcon, TrashIcon } from "./Icons";
+import { ChevronIcon, EyeIcon, LockIcon, TrashIcon } from "./Icons";
 import PlacementSelect from "./PlacementSelect";
 import ColorSelect from "./ColorSelect";
 
 /**
  * Editable fields for one event, shared by the sidebar and the map's hover menus.
- * Without onUpdate it's read-only (e.g. on the share page).
+ * Without onUpdate it's read-only (e.g. on the share page). A locked event is read-only too,
+ * apart from its lock button.
  */
 export default function EventEditor({
 	event,
@@ -45,12 +46,14 @@ export default function EventEditor({
 	const addressOnFocus = useRef(event.address);
 	// Bumped on every address edit, so a lookup that finishes after the address changed is ignored
 	const addressVersion = useRef(0);
-	const readOnly = !onUpdate;
-	const canCollapse = collapsible && !readOnly;
+	const editable = onUpdate !== undefined;
+	const readOnly = !editable || event.locked;
+	// Collapsing only changes the sidebar, so it still works on a locked event
+	const canCollapse = collapsible && editable;
 	const collapsed = canCollapse && event.collapsed;
 
 	function update(changes: Partial<MapEvent>) {
-		onUpdate?.(event.id, changes);
+		if (!readOnly) onUpdate?.(event.id, changes);
 	}
 
 	function clearDraft(key: keyof typeof drafts) {
@@ -83,7 +86,8 @@ export default function EventEditor({
 						className="h-8 mt-2 ml-1 px-1"
 						aria-label={collapsed ? "Expand event" : "Collapse event"}
 						aria-expanded={!collapsed}
-						onClick={() => update({ collapsed: !collapsed })}
+						// Straight to onUpdate, as update() is blocked while locked and collapsing is still allowed
+						onClick={() => onUpdate?.(event.id, { collapsed: !collapsed })}
 					>
 						<ChevronIcon open={!collapsed} size={20} />
 					</button>
@@ -110,11 +114,12 @@ export default function EventEditor({
 					}}
 					placeholder="Date (DD/MM/YYYY)"
 				/>
-				{onUpdate && !collapsed ? (
+				{editable && !collapsed ? (
 					<button
-						className="h-8 border border-line rounded-md mt-2 mr-2 px-1"
-						title={event.visible ? "Hide" : "Show"}
+						className="h-8 border border-line rounded-md mt-2 mr-2 px-1 disabled:opacity-40"
+						title={event.locked ? "Unlock to hide or show" : event.visible ? "Hide" : "Show"}
 						aria-label={event.visible ? "Hide event" : "Show event"}
+						disabled={readOnly}
 						onClick={() => update({ visible: !event.visible })}
 					>
 						<EyeIcon crossed={!event.visible} />
@@ -161,9 +166,10 @@ export default function EventEditor({
 						/>
 						{onDelete ? (
 							<button
-								className="h-8 border border-line rounded-md mt-2 mr-2 px-1"
-								title="Delete"
+								className="h-8 border border-line rounded-md mt-2 mr-2 px-1 disabled:opacity-40"
+								title={event.locked ? "Unlock to delete" : "Delete"}
 								aria-label="Delete event"
+								disabled={event.locked}
 								onClick={() => onDelete(event.id)}
 							>
 								<TrashIcon />
@@ -193,9 +199,22 @@ export default function EventEditor({
 							disabled={readOnly}
 							onChange={(iconColor) => update({ iconColor })}
 						/>
+						{editable ? (
+							// The one control a locked event keeps
+							<button
+								className={`h-8 border border-line rounded-md mt-2 mr-2 px-1 ${event.locked ? "bg-panel-raised" : ""}`}
+								title={event.locked ? "Unlock" : "Lock (stops all changes until unlocked)"}
+								aria-label={event.locked ? "Unlock event" : "Lock event"}
+								aria-pressed={event.locked}
+								onClick={() => onUpdate(event.id, { locked: !event.locked })}
+							>
+								<LockIcon open={!event.locked} />
+							</button>
+						) : null}
 					</div>
-					{groups && !readOnly ? (
+					{groups && editable ? (
 						<PlacementSelect
+							disabled={readOnly}
 							className="block h-8 border border-line bg-panel rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)]"
 							value={event}
 							groups={groups}

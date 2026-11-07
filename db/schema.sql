@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS events (
 	group_id INTEGER,                 -- map_groups.id, or NULL when ungrouped (also set for events in a layer)
 	layer_id INTEGER,                 -- layers.id, or NULL when not in a layer
 	travel_note TEXT NOT NULL DEFAULT '', -- notes on getting here from the previous event, e.g. train time
-	collapsed INTEGER NOT NULL DEFAULT 0 -- 0 or 1, whether the sidebar shows just its name and date
+	collapsed INTEGER NOT NULL DEFAULT 0, -- 0 or 1, whether the sidebar shows just its name and date
+	locked INTEGER NOT NULL DEFAULT 0  -- 0 or 1; a locked event can't be edited or deleted
 );
 
 -- Upgrades for databases created by older versions (the app also runs these automatically):
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS events (
 -- ALTER TABLE events ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0;
 -- ALTER TABLE map_groups ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0;
 -- ALTER TABLE layers ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0;
+-- ALTER TABLE events ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id);
 

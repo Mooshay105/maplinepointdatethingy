@@ -28,7 +28,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/groups/[id
 	return NextResponse.json({ ok: true });
 }
 
-/** Deletes the group and its layers. Their events are kept and moved out of the group. */
+/**
+ * Deletes the group and its layers. Their events are kept and moved out of the group, apart from
+ * locked ones: those keep pointing at the deleted group, which the app shows as being in no group.
+ */
 export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/groups/[id]">) {
 	const { userId } = await auth();
 	if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -40,7 +43,7 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/groups/[
 	await db.batch(
 		[
 			{
-				sql: "UPDATE events SET group_id = NULL, layer_id = NULL WHERE group_id = ? AND user_id = ?",
+				sql: "UPDATE events SET group_id = NULL, layer_id = NULL WHERE group_id = ? AND user_id = ? AND locked = 0",
 				args: [id, userId],
 			},
 			{ sql: "DELETE FROM layers WHERE group_id = ? AND user_id = ?", args: [id, userId] },
