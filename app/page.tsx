@@ -782,20 +782,11 @@ export default function Home() {
 	] as const;
 
 	return (
-		// Side by side on wide screens, sidebar first; on phones the map sits on top and the sidebar below.
-		// The map comes first in the page too, so keyboard and screen reader order match what's on screen.
-		<main className="flex h-dvh flex-col overflow-hidden md:flex-row">
-			<MapView
-				events={visibleEvents}
-				alwaysShowHoverMenus={settings.alwaysShowHoverMenus}
-				showDates={settings.showDatesOnMap}
-				onUpdate={updateEvent}
-				onDelete={deleteEvent}
-				groups={groups}
-				layers={layers}
-				highlightedId={hoveredEventId}
-			/>
-			<aside className="panel-scheme flex min-h-0 flex-1 flex-col border-t border-line bg-panel text-panel-foreground md:order-first md:w-[clamp(380px,30vw,460px)] md:flex-none md:border-t-0 md:border-r">
+		// Side by side on wide screens, sidebar on the left; on phones the map sits on top and the
+		// sidebar below. The sidebar comes first in the page, so on phones keyboard and screen
+		// reader order reach it before the map even though it's drawn underneath.
+		<main className="flex h-dvh flex-col-reverse overflow-hidden md:flex-row">
+			<aside className="panel-scheme flex min-h-0 flex-1 flex-col border-t border-line bg-panel text-panel-foreground md:w-[clamp(380px,30vw,460px)] md:flex-none md:border-t-0 md:border-r">
 				<header className="px-4 pt-3">
 					<div className="flex items-center justify-between gap-3">
 						<h1 className="font-display text-xl leading-tight font-semibold">
@@ -911,7 +902,8 @@ export default function Home() {
 								id={`tab-${tab.id}`}
 								role="tab"
 								aria-selected={selectedTab === tab.id}
-								aria-controls={`panel-${tab.id}`}
+								// Only the shown panel exists, so only its tab points at it
+								aria-controls={selectedTab === tab.id ? `panel-${tab.id}` : undefined}
 								tabIndex={selectedTab === tab.id ? 0 : -1}
 								className={`relative z-10 -mb-0.5 border-b-2 pt-1 pb-2 font-display text-lg font-semibold ${selectedTab === tab.id ? "border-accent text-panel-foreground" : "border-transparent text-muted hover:text-panel-foreground"}`}
 								onClick={() => setSelectedTab(tab.id)}
@@ -1113,6 +1105,16 @@ export default function Home() {
 					</div>
 				)}
 			</aside>
+			<MapView
+				events={visibleEvents}
+				alwaysShowHoverMenus={settings.alwaysShowHoverMenus}
+				showDates={settings.showDatesOnMap}
+				onUpdate={updateEvent}
+				onDelete={deleteEvent}
+				groups={groups}
+				layers={layers}
+				highlightedId={hoveredEventId}
+			/>
 
 		</main>
 	);

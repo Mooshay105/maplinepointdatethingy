@@ -183,24 +183,39 @@ export default function EventEditor({
 							Couldn&apos;t find this address. Check it, or type the coordinates.
 						</p>
 					) : null}
-					<input
-						className="field tabular-nums"
-						aria-label="Latitude"
-						value={drafts.lat ?? event.lat}
-						readOnly={readOnly}
-						onChange={(e) => updateCoordinate("lat", e.target.value)}
-						onBlur={() => clearDraft("lat")}
-						placeholder="Latitude"
-					/>
-					<input
-						className="field tabular-nums"
-						aria-label="Longitude"
-						value={drafts.lng ?? event.lng}
-						readOnly={readOnly}
-						onChange={(e) => updateCoordinate("lng", e.target.value)}
-						onBlur={() => clearDraft("lng")}
-						placeholder="Longitude"
-					/>
+					{/* Labelled inside the box, as the bare numbers are hard to tell apart */}
+					<div className="relative min-w-0">
+						<span
+							aria-hidden="true"
+							className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-xs text-muted ${readOnly ? "left-0" : "left-2"}`}
+						>
+							Lat
+						</span>
+						<input
+							className={`field w-full tabular-nums ${readOnly ? "pl-7" : "pl-9"}`}
+							aria-label="Latitude"
+							value={drafts.lat ?? event.lat}
+							readOnly={readOnly}
+							onChange={(e) => updateCoordinate("lat", e.target.value)}
+							onBlur={() => clearDraft("lat")}
+						/>
+					</div>
+					<div className="relative min-w-0">
+						<span
+							aria-hidden="true"
+							className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-xs text-muted ${readOnly ? "left-0" : "left-2"}`}
+						>
+							Lng
+						</span>
+						<input
+							className={`field w-full tabular-nums ${readOnly ? "pl-7" : "pl-9"}`}
+							aria-label="Longitude"
+							value={drafts.lng ?? event.lng}
+							readOnly={readOnly}
+							onChange={(e) => updateCoordinate("lng", e.target.value)}
+							onBlur={() => clearDraft("lng")}
+						/>
+					</div>
 					<select
 						className="field"
 						aria-label="Icon"
