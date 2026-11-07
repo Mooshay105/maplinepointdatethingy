@@ -146,6 +146,15 @@ export const setCollapsedInput = z.object({
 		.describe("Set to true to apply this to every layer, instead of listing their ids"),
 });
 
+export const setLockedInput = z.object({
+	eventIds: z.array(z.number()).describe("The ids of the events"),
+	locked: z
+		.boolean()
+		.describe(
+			"True to lock the events, so nothing about them can be changed, hidden, shown or deleted. False to unlock them.",
+		),
+});
+
 export type AddEventInput = z.infer<typeof addEventInput>;
 export type EditEventInput = z.infer<typeof editEventInput>;
 export type SetTravelNoteInput = z.infer<typeof setTravelNoteInput>;
@@ -158,3 +167,4 @@ export type EditLayerInput = z.infer<typeof editLayerInput>;
 export type DeleteLayerInput = z.infer<typeof deleteLayerInput>;
 export type SetVisibilityInput = z.infer<typeof setVisibilityInput>;
 export type SetCollapsedInput = z.infer<typeof setCollapsedInput>;
+export type SetLockedInput = z.infer<typeof setLockedInput>;

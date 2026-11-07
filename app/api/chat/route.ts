@@ -23,6 +23,7 @@ import {
 	editGroupInput,
 	editLayerInput,
 	setCollapsedInput,
+	setLockedInput,
 	setTravelNoteInput,
 	setVisibilityInput,
 } from "@/utils/chatTools";
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
 
 	const result = streamText({
 		model: openai("gpt-6-luna"),
-		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${new Date().toLocaleString("en-NZ")}. Events can be put in groups, and groups can contain layers (a layer is a folder of events inside a group; layers can't contain other layers). Use listEvents to find event ids, and listGroups to find group and layer ids, before editing, deleting, hiding or showing. Use hideItems and showItems to hide or show many things at once. In the sidebar, a collapsed event shows just its name and date, and a collapsed group or layer hides what's inside it; use collapseItems and expandItems to change that (this doesn't affect the map). The map draws a line through the shown events in date order; use listLegs to see the days between each event and the next, and setTravelNote to note how to get from one to the next (e.g. the approximate train time). Use geoLookup to get coordinates for an address or place before adding or moving an event there. Do not use markdown in your responses.`,
+		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${new Date().toLocaleString("en-NZ")}. Events can be put in groups, and groups can contain layers (a layer is a folder of events inside a group; layers can't contain other layers). Use listEvents to find event ids, and listGroups to find group and layer ids, before editing, deleting, hiding or showing. Use hideItems and showItems to hide or show many things at once. In the sidebar, a collapsed event shows just its name and date, and a collapsed group or layer hides what's inside it; use collapseItems and expandItems to change that (this doesn't affect the map). The map draws a line through the shown events in date order; use listLegs to see the days between each event and the next, and setTravelNote to note how to get from one to the next (e.g. the approximate train time). Events can be locked: nothing about a locked event can be edited, moved, hidden, shown or deleted until it's unlocked (it can still be collapsed or expanded in the sidebar). listEvents says which events are locked. Use setEventsLocked to lock or unlock events, but only unlock an event when the user asks for that; never unlock one just to make a change. Use geoLookup to get coordinates for an address or place before adding or moving an event there. Do not use markdown in your responses.`,
 		tools: {
 			addEvent: tool({
 				description: "Add an event to the calendar",
@@ -109,12 +110,12 @@ export async function POST(req: Request) {
 			}),
 			hideItems: tool({
 				description:
-					"Hide many events, groups and layers from the map at once. They are kept, just not shown. An event only shows when it, its group and its layer are all visible.",
+					"Hide many events, groups and layers from the map at once. They are kept, just not shown. An event only shows when it, its group and its layer are all visible. Locked events are skipped.",
 				inputSchema: setVisibilityInput,
 			}),
 			showItems: tool({
 				description:
-					"Show many events, groups and layers on the map at once. An event only shows when it, its group and its layer are all visible, so showing an event in a hidden group or layer won't put it on the map.",
+					"Show many events, groups and layers on the map at once. An event only shows when it, its group and its layer are all visible, so showing an event in a hidden group or layer won't put it on the map. Locked events are skipped.",
 				inputSchema: setVisibilityInput,
 			}),
 			collapseItems: tool({
@@ -126,6 +127,11 @@ export async function POST(req: Request) {
 				description:
 					"Expand many events, groups and layers in the sidebar at once, so all their details or contents show again. This doesn't change what's on the map.",
 				inputSchema: setCollapsedInput,
+			}),
+			setEventsLocked: tool({
+				description:
+					"Lock or unlock events. A locked event can't be edited, moved, hidden, shown or deleted until it's unlocked. Only unlock events when the user asks to.",
+				inputSchema: setLockedInput,
 			}),
 			geoLookup: tool({
 				description:

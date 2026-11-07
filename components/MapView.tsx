@@ -196,8 +196,8 @@ export default function MapView({
 				const marker = new google.maps.Marker({
 					position: { lat: event.lat, lng: event.lng },
 					map,
-					// Dragging moves the event; the address is left as typed
-					draggable,
+					// Dragging moves the event; the address is left as typed. Locked events stay put.
+					draggable: draggable && !event.locked,
 					icon: markerIcon(google, url, event.id === highlightedIdRef.current),
 					zIndex: event.id === highlightedIdRef.current ? google.maps.Marker.MAX_ZINDEX : undefined,
 				});
@@ -328,8 +328,11 @@ export default function MapView({
 									days={daysBetween(from.date, to.date)}
 									note={to.travelNote}
 									title={`${from.name || "Untitled"} → ${to.name || "Untitled"}`}
+									// The notes are stored on the event the stretch leads to, so they lock with it
 									onNoteChange={
-										onUpdate ? (travelNote) => onUpdate(to.id, { travelNote }) : undefined
+										onUpdate && !to.locked
+											? (travelNote) => onUpdate(to.id, { travelNote })
+											: undefined
 									}
 								/>
 							</MapAnchor>

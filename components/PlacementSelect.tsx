@@ -9,18 +9,21 @@ export default function PlacementSelect({
 	groups,
 	layers,
 	onChange,
+	disabled,
 	className = "",
 }: {
 	value: Placement;
 	groups: MapGroup[];
 	layers: Layer[];
 	onChange: (placement: Placement) => void;
+	disabled?: boolean;
 	className?: string;
 }) {
 	return (
 		<select
 			className={className}
 			value={placementValue(value, groups, layers)}
+			disabled={disabled}
 			onChange={(e) => onChange(parsePlacementValue(e.target.value, layers))}
 		>
 			<option value="">No group</option>

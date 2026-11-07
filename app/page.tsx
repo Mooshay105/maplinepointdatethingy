@@ -8,6 +8,7 @@ import PlacementSelect from "@/components/PlacementSelect";
 import ColorSelect from "@/components/ColorSelect";
 import { SettingsIcon, UserIcon } from "@/components/Icons";
 import {
+	editsLockedEvent,
 	EVENT_ICONS,
 	EventColor,
 	EventIcon,
@@ -42,6 +43,7 @@ import {
 	EditGroupInput,
 	EditLayerInput,
 	SetCollapsedInput,
+	SetLockedInput,
 	SetTravelNoteInput,
 	SetVisibilityInput,
 } from "@/utils/chatTools";
@@ -141,7 +143,12 @@ export default function Home() {
 		};
 	}, [isSignedIn, userId]);
 
+	/** Changes an event. Does nothing to a locked one, unless the change is just to its lock. */
 	function updateEvent(id: number, changes: Partial<MapEvent>) {
+		const event = eventsRef.current.find((e) => e.id === id);
+		if (!event || editsLockedEvent(event, changes)) return;
+		// Keep the ref current, so a second change in the same tick (e.g. unlock then edit) sees this one
+		eventsRef.current = eventsRef.current.map((e) => (e.id === id ? { ...e, ...changes } : e));
 		setEvents((prev) => {
 			const next = prev.map((event) =>
 				event.id === id ? { ...event, ...changes } : event,
@@ -150,15 +157,24 @@ export default function Home() {
 				? next.sort((a, b) => a.date.getTime() - b.date.getTime())
 				: next;
 		});
-		eventsSync.updateEvent(id, changes);
+		if ("locked" in changes) {
+			// Send the lock on its own, after any edits still waiting to go out. Merged into one
+			// request, "unlock, edit, lock again" would reach the server as an edit to a locked event.
+			flushAllUpdates();
+			eventsSync.updateEvent(id, changes);
+			flushAllUpdates();
+		} else {
+			eventsSync.updateEvent(id, changes);
+		}
 	}
 
-	/** Shows or hides many events, groups and layers at once. */
+	/** Shows or hides many events, groups and layers at once. Locked events are left as they are. */
 	function setVisibility(
 		visible: boolean,
 		ids: { eventIds: number[]; groupIds: number[]; layerIds: number[] },
 	) {
-		const eventIds = new Set(ids.eventIds);
+		const locked = new Set(eventsRef.current.filter((e) => e.locked).map((e) => e.id));
+		const eventIds = new Set(ids.eventIds.filter((id) => !locked.has(id)));
 		const groupIds = new Set(ids.groupIds);
 		const layerIds = new Set(ids.layerIds);
 		setEvents((prev) =>
@@ -197,7 +213,9 @@ export default function Home() {
 		for (const id of layerIds) groupsSync.updateLayer(id, { collapsed });
 	}
 
+	/** Deletes an event, unless it's locked. */
 	function deleteEvent(id: number) {
+		if (eventsRef.current.find((e) => e.id === id)?.locked) return;
 		setEvents((prev) => prev.filter((event) => event.id !== id));
 		eventsSync.deleteEvent(id);
 	}
@@ -222,13 +240,18 @@ export default function Home() {
 		groupsSync.updateGroup(id, changes);
 	}
 
-	/** Deletes the group and its layers, but keeps their events, moving them out of the group. */
+	/**
+	 * Deletes the group and its layers, but keeps their events, moving them out of the group.
+	 * Locked events keep the deleted group's id, which shows them as being in no group.
+	 */
 	function deleteGroup(id: number) {
 		setGroups((prev) => prev.filter((group) => group.id !== id));
 		setLayers((prev) => prev.filter((layer) => layer.groupId !== id));
 		// Events in the group's layers store the group too, so this catches them as well
 		setEvents((prev) =>
-			prev.map((event) => (event.groupId === id ? { ...event, ...UNGROUPED } : event)),
+			prev.map((event) =>
+				event.groupId === id && !event.locked ? { ...event, ...UNGROUPED } : event,
+			),
 		);
 		groupsSync.deleteGroup(id);
 	}
@@ -257,11 +280,16 @@ export default function Home() {
 		groupsSync.updateLayer(id, changes);
 	}
 
-	/** Deletes the layer, but keeps its events in the layer's group. */
+	/**
+	 * Deletes the layer, but keeps its events in the layer's group. Locked events keep the deleted
+	 * layer's id, which shows them as being straight in the group.
+	 */
 	function deleteLayer(id: number) {
 		setLayers((prev) => prev.filter((layer) => layer.id !== id));
 		setEvents((prev) =>
-			prev.map((event) => (event.layerId === id ? { ...event, layerId: null } : event)),
+			prev.map((event) =>
+				event.layerId === id && !event.locked ? { ...event, layerId: null } : event,
+			),
 		);
 		groupsSync.deleteLayer(id);
 	}
@@ -304,6 +332,7 @@ export default function Home() {
 			date: parsedDate,
 			visible: true,
 			collapsed: false,
+			locked: false,
 		};
 		setEvents((prev) =>
 			[...prev, event].sort((a, b) => a.date.getTime() - b.date.getTime()),
@@ -400,6 +429,9 @@ export default function Home() {
 					output,
 				});
 
+			const lockedMessage = (id: number) =>
+				`Event ${id} is locked, so it can't be changed. Only unlock it (with setEventsLocked) if the user asks to.`;
+
 			// The AI SDK has already checked each input against the schemas in utils/chatTools.ts
 			if (toolCall.toolName === "addEvent") {
 				const input = toolCall.input as AddEventInput;
@@ -445,8 +477,13 @@ export default function Home() {
 				);
 			} else if (toolCall.toolName === "editEvent") {
 				const input = toolCall.input as EditEventInput;
-				if (!eventsRef.current.some((event) => event.id === input.id)) {
+				const existing = eventsRef.current.find((event) => event.id === input.id);
+				if (!existing) {
 					respond(`No event with id ${input.id}`);
+					return;
+				}
+				if (existing.locked) {
+					respond(lockedMessage(input.id));
 					return;
 				}
 				const changes: Partial<MapEvent> = {};
@@ -484,8 +521,13 @@ export default function Home() {
 				respond(`Edited event ${input.id}`);
 			} else if (toolCall.toolName === "deleteEvent") {
 				const input = toolCall.input as DeleteEventInput;
-				if (!eventsRef.current.some((event) => event.id === input.id)) {
+				const existing = eventsRef.current.find((event) => event.id === input.id);
+				if (!existing) {
 					respond(`No event with id ${input.id}`);
+					return;
+				}
+				if (existing.locked) {
+					respond(lockedMessage(input.id));
 					return;
 				}
 				deleteEvent(input.id);
@@ -504,6 +546,7 @@ export default function Home() {
 					groupId: event.groupId,
 					layerId: event.layerId,
 					travelNote: event.travelNote,
+					locked: event.locked,
 				}));
 				respond(JSON.stringify(list));
 			} else if (toolCall.toolName === "listLegs") {
@@ -516,6 +559,8 @@ export default function Home() {
 					toDate: formatNzDate(to.date),
 					days: daysBetween(from.date, to.date),
 					travelNote: to.travelNote,
+					// The notes are stored on the event the stretch leads to, so they lock with it
+					locked: to.locked,
 				}));
 				respond(JSON.stringify(list));
 			} else if (toolCall.toolName === "setTravelNote") {
@@ -527,6 +572,10 @@ export default function Home() {
 					respond(
 						`Events ${input.fromEventId} and ${input.toEventId} aren't next to each other on the map. Use listLegs to find the stretches.`,
 					);
+					return;
+				}
+				if (leg.to.locked) {
+					respond(lockedMessage(leg.to.id));
 					return;
 				}
 				// The notes for a stretch are stored on the event it leads to
@@ -628,9 +677,16 @@ export default function Home() {
 					respond("Nothing changed, no ids were given");
 					return;
 				}
+				// Locked events are skipped, and the rest still go ahead
+				const skipped = eventIds.filter(
+					(id) => eventsRef.current.find((event) => event.id === id)?.locked,
+				);
 				setVisibility(visible, { eventIds, groupIds, layerIds });
 				respond(
-					`${visible ? "Showed" : "Hid"} ${eventIds.length} events, ${groupIds.length} groups and ${layerIds.length} layers`,
+					`${visible ? "Showed" : "Hid"} ${eventIds.length - skipped.length} events, ${groupIds.length} groups and ${layerIds.length} layers` +
+						(skipped.length > 0
+							? `. Skipped ${skipped.length} locked events: ${skipped.join(", ")}`
+							: ""),
 				);
 			} else if (
 				toolCall.toolName === "collapseItems" ||
@@ -670,6 +726,21 @@ export default function Home() {
 				respond(
 					`${collapsed ? "Collapsed" : "Expanded"} ${eventIds.length} events, ${groupIds.length} groups and ${layerIds.length} layers`,
 				);
+			} else if (toolCall.toolName === "setEventsLocked") {
+				const input = toolCall.input as SetLockedInput;
+				const missing = input.eventIds.filter(
+					(id) => !eventsRef.current.some((event) => event.id === id),
+				);
+				if (missing.length > 0) {
+					respond(`Nothing changed. No events with ids ${missing.join(", ")}`);
+					return;
+				}
+				if (input.eventIds.length === 0) {
+					respond("Nothing changed, no ids were given");
+					return;
+				}
+				for (const id of input.eventIds) updateEvent(id, { locked: input.locked });
+				respond(`${input.locked ? "Locked" : "Unlocked"} ${input.eventIds.length} events`);
 			} else if (toolCall.toolName === "geoLookup") {
 				// Executed on the server (OpenStreetMap), output arrives in the stream
 				return;

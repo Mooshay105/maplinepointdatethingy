@@ -136,7 +136,20 @@ export type MapEvent = {
 	travelNote: string;
 	/** Whether the sidebar shows just its name and date. */
 	collapsed: boolean;
+	/**
+	 * A locked event can't be changed, moved, hidden, shown or deleted until it's unlocked.
+	 * Only the lock itself, and whether the sidebar shows it collapsed, can still be changed.
+	 */
+	locked: boolean;
 };
+
+/** Fields a locked event still lets you change: the lock, and whether the sidebar shows it collapsed. */
+export const LOCK_EXEMPT_FIELDS: readonly string[] = ["locked", "collapsed"];
+
+/** Whether `changes` would touch anything on a locked event other than the lock (or how the sidebar shows it). */
+export function editsLockedEvent(event: Pick<MapEvent, "locked">, changes: object) {
+	return event.locked && Object.keys(changes).some((key) => !LOCK_EXEMPT_FIELDS.includes(key));
+}
 
 /** A folder of events and layers that can be hidden from the map all at once. */
 export type MapGroup = {
@@ -167,6 +180,7 @@ export type LegacyEvent = Omit<
 	| "layerId"
 	| "travelNote"
 	| "collapsed"
+	| "locked"
 > & {
 	date: string;
 	description?: string;

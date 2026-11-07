@@ -35,7 +35,8 @@ async function createSchema() {
 			group_id INTEGER,
 			layer_id INTEGER,
 			travel_note TEXT NOT NULL DEFAULT '',
-			collapsed INTEGER NOT NULL DEFAULT 0
+			collapsed INTEGER NOT NULL DEFAULT 0,
+			locked INTEGER NOT NULL DEFAULT 0
 		)`,
 	);
 	await db.execute("CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id)");
@@ -84,6 +85,9 @@ async function createSchema() {
 	if (!existingColumns.includes("collapsed")) {
 		await db.execute("ALTER TABLE events ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0");
 	}
+	if (!existingColumns.includes("locked")) {
+		await db.execute("ALTER TABLE events ADD COLUMN locked INTEGER NOT NULL DEFAULT 0");
+	}
 	if (existingColumns.includes("visable")) {
 		await db.execute("ALTER TABLE events RENAME COLUMN visable TO visible");
 	}
@@ -119,9 +123,15 @@ export const eventSchema = z.object({
 	layerId: idSchema.nullable(),
 	travelNote: z.string(),
 	collapsed: z.boolean(),
+	// Optional so a page loaded before locking existed can still create events
+	locked: z.boolean().default(false),
 });
 
-export const eventChangesSchema = eventSchema.omit({ id: true }).partial();
+export const eventChangesSchema = eventSchema
+	.omit({ id: true })
+	// Without the default, so leaving out `locked` doesn't count as unlocking
+	.extend({ locked: z.boolean() })
+	.partial();
 
 export type EventChanges = z.infer<typeof eventChangesSchema>;
 
@@ -141,6 +151,7 @@ export function rowToEvent(row: Row): z.infer<typeof eventSchema> {
 		layerId: nullableId(row.layer_id),
 		travelNote: String(row.travel_note ?? ""),
 		collapsed: Boolean(row.collapsed),
+		locked: Boolean(row.locked),
 	};
 }
 
@@ -163,6 +174,7 @@ export const columns: Record<keyof EventChanges, string> = {
 	layerId: "layer_id",
 	travelNote: "travel_note",
 	collapsed: "collapsed",
+	locked: "locked",
 };
 
 export const groupSchema = z.object({
@@ -211,13 +223,15 @@ export async function updateOwnedRow(
 	id: number,
 	userId: string,
 	changes: Record<string, unknown>,
+	/** More SQL the row has to match, e.g. "locked = 0". */
+	extraCondition?: string,
 ) {
 	const entries = Object.entries(changes);
 	if (entries.length === 0) return true;
 
 	const rs = await db.execute({
 		sql: `UPDATE ${table} SET ${entries.map(([k]) => `${columnNames[k]} = ?`).join(", ")}
-			WHERE id = ? AND user_id = ?`,
+			WHERE id = ? AND user_id = ?${extraCondition ? ` AND (${extraCondition})` : ""}`,
 		args: [
 			...entries.map(([, v]) =>
 				typeof v === "boolean" ? (v ? 1 : 0) : (v as string | number | null),
