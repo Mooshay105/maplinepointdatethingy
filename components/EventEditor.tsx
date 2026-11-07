@@ -95,10 +95,11 @@ export default function EventEditor({
 		</button>
 	) : null;
 
-	// The outline that shows the title fields can be edited; utilities would beat the read-only style
+	// A faint underline (full outline on hover) that shows the title fields can be edited, like the
+	// folder names. Left off read-only cards, as utilities would beat the read-only style.
 	const editableHint = readOnly
 		? ""
-		: "hover:border-field-line focus-visible:border-accent pointer-coarse:border-b-field-line/50";
+		: "border-b-field-line/50 hover:border-field-line focus-visible:border-accent";
 
 	return (
 		<div className={className}>

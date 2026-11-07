@@ -806,7 +806,8 @@ export default function Home() {
 							</Show>
 							<Show when="signed-in">
 								<button
-									className="button"
+									// Wide enough for "Link copied", so the header doesn't shift when it changes
+									className="button min-w-[6.75rem]"
 									title="Copy a link to a read-only copy of your map"
 									onClick={copyShareLink}
 								>
@@ -865,13 +866,13 @@ export default function Home() {
 													onChange={(e) => setOpenaiApiKey(e.target.value)}
 												/>
 												<button
-													className="border border-current/50 rounded-md ml-1 px-2 text-[13px]"
+													className="border border-current/50 rounded-md ml-1 px-3 py-1 text-[13px] hover:bg-current/10"
 													onClick={() => setShowApiKey((v) => !v)}
 												>
 													{showApiKey ? "Hide" : "Show"}
 												</button>
 												<button
-													className="border border-current/50 rounded-md ml-1 px-2 text-[13px]"
+													className="border border-current/50 rounded-md ml-1 px-3 py-1 text-[13px] hover:bg-current/10"
 													onClick={() => setOpenaiApiKey("")}
 												>
 													Clear
@@ -918,7 +919,7 @@ export default function Home() {
 				{/* Lane lines, the panel's one ornament, closing off the header */}
 				<div
 					aria-hidden="true"
-					className="h-[10px] shrink-0 border-t-2 border-panel-foreground/40 bg-[linear-gradient(to_bottom,transparent_4px,rgb(238_242_252/0.25)_4px,rgb(238_242_252/0.25)_6px,transparent_6px)]"
+					className="h-[10px] shrink-0 border-t border-panel-foreground/40 bg-[linear-gradient(to_bottom,transparent_4px,rgb(238_242_252/0.25)_4px,rgb(238_242_252/0.25)_6px,transparent_6px)]"
 				/>
 				{/* Both panels stay mounted, so switching tabs keeps the list's scroll and a half-typed message */}
 				<>
@@ -1033,7 +1034,7 @@ export default function Home() {
 										aria-label="Date, DD/MM/YYYY. Leave empty for today."
 										value={date}
 										onChange={(e) => setDate(e.target.value)}
-										placeholder="DD/MM/YYYY, or blank for today"
+										placeholder="DD/MM/YYYY"
 									/>
 									<input
 										className="field col-span-2"
@@ -1097,6 +1098,7 @@ export default function Home() {
 										onChange={setPlacement}
 									/>
 								</div>
+								<p className="mt-1.5 text-xs text-muted">Leave the date empty for today.</p>
 								{submitError ? (
 									<p role="alert" className="mt-2 text-sm text-danger">
 										{submitError}

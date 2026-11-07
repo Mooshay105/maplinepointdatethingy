@@ -122,7 +122,7 @@ function Folder({
 					<ChevronIcon open={open} size={18} />
 				</button>
 				<input
-					className={`field flex-1 border-transparent border-b-field-line/50 bg-transparent px-1.5 font-display font-semibold hover:border-field-line focus-visible:border-accent ${kind === "group" ? "text-lg" : "text-[0.9375rem]"} ${folder.visible ? "" : "text-muted"}`}
+					className={`field flex-1 border-transparent border-b-field-line/50 bg-transparent px-1.5 font-display font-semibold hover:border-field-line focus-visible:border-accent ${kind === "group" ? "text-lg" : "text-[0.9375rem] pointer-coarse:text-base"} ${folder.visible ? "" : "text-muted"}`}
 					aria-label={kind === "group" ? "Group name" : "Layer name"}
 					value={folder.name}
 					onChange={(e) => onUpdate({ name: e.target.value })}
@@ -161,7 +161,7 @@ function Folder({
 				// The rule down the left shows what's inside: solid for a group, dashed for a layer.
 				// A hidden folder only mutes its name, so the cards in it don't look disabled.
 				<div
-					className={`ml-2.5 border-l-2 pl-1 ${kind === "layer" ? "border-dashed border-line" : "border-line"} `}
+					className={`ml-2.5 border-l-2 pl-1 max-md:ml-1.5 max-md:pl-0.5 ${kind === "layer" ? "border-dashed border-line" : "border-line"} `}
 				>
 					{isEmpty ? (
 						<p className="py-2 pl-1 text-sm text-muted">

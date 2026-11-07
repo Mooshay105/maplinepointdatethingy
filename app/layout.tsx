@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Barlow, Barlow_Condensed } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
@@ -20,6 +20,11 @@ const barlowCondensed = Barlow_Condensed({
 export const metadata: Metadata = {
 	title: "Mapline Point Date Thingy",
 	description: "A custom tool",
+};
+
+// Lets the page shrink when a phone's keyboard opens, so the add form and chat input stay above it
+export const viewport: Viewport = {
+	interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
