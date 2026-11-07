@@ -5,24 +5,92 @@
  * `text-<name>` and `border-<name>`, so changing a value here changes it everywhere it's used.
  * Prefer these over one-off colours like `bg-[#0f0f0f]`.
  * (Map marker and route colours are set in JavaScript for Google Maps, see components/MapView.tsx.)
+ *
+ * The panels take after a blue running track: track-blue surfaces, chalk-white lane lines and
+ * text, and race-bib yellow for the one thing to press (adding an event, sending a message).
  */
 @theme {
-  /* The dark panels: sidebar, header, hover menus */
-  --color-panel: #0f0f0f;
-  --color-panel-raised: #1f1f1f; /* Something sitting on a panel, e.g. your chat messages */
-  --color-panel-foreground: #ffffff; /* Text on a panel */
-  --color-line: #f0f0f0; /* Borders and dividers on a panel */
-  --color-muted: #a1a1aa; /* Secondary text on a panel */
-  --color-danger: #f87171; /* Error messages */
+	/* The panels: sidebar, hover menus, map buttons */
+	--color-panel: #16306a;
+	--color-panel-sunken: #10244f; /* Inputs and wells set into a panel */
+	--color-panel-raised: #21407f; /* Something sitting on a panel, e.g. your chat messages */
+	--color-panel-foreground: #eef2fc; /* Text on a panel */
+	--color-line: #3d5a99; /* Borders and dividers on a panel */
+	--color-field-line: #6582c2; /* Input outlines, at least 3:1 against the panel so fields are easy to find */
+	--color-muted: #a9b7dd; /* Secondary text on a panel */
+	--color-accent: #ffd84a; /* The main action, focus rings, the selected tab */
+	--color-accent-foreground: #10244f; /* Text on the accent */
+	--color-danger: #ff9a8f; /* Error messages */
 
-  /* The Settings page inside Clerk's light profile popup, matched to Clerk's own styling */
-  --color-modal-line: #ededed;
-  --color-modal-input: #d9d9d9;
-  --color-modal-muted: #747686;
+	/* Set in app/layout.tsx with next/font */
+	--font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+	--font-display: var(--font-barlow-condensed), var(--font-barlow), ui-sans-serif, sans-serif;
 }
 
 body {
-  background: var(--color-panel);
-  color: var(--color-panel-foreground);
-  font-family: Arial, Helvetica, sans-serif;
+	background: var(--color-panel);
+	color: var(--color-panel-foreground);
+}
+
+/*
+ * Dark scrollbars, dropdown menus and pickers on the panels. Not on body, since Clerk's profile
+ * popup (and the Settings page in it) is light.
+ */
+.panel-scheme {
+	color-scheme: dark;
+	scrollbar-color: var(--color-line) transparent;
+}
+
+/*
+ * Shared control styles, in the components layer so a utility class on the element still wins
+ * (e.g. `field w-1/2` or `field border-danger`).
+ */
+@layer components {
+	/* Text inputs, selects and textareas on a panel */
+	.field {
+		@apply h-8 min-w-0 rounded-md border border-field-line bg-panel-sunken px-2 text-panel-foreground placeholder:text-muted/80 pointer-coarse:h-10 pointer-coarse:text-base;
+		@apply focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent;
+		/* Read-only text, e.g. a locked event, reads as plain text. Not :read-only, which every select matches */
+		@apply [&[readonly]]:border-transparent [&[readonly]]:bg-transparent [&[readonly]]:px-0 disabled:opacity-60;
+	}
+	textarea.field {
+		@apply h-auto py-1;
+	}
+	select.field {
+		@apply pr-1;
+	}
+	/* A locked or read-only event's dropdowns read as plain text, like its read-only inputs */
+	select.field:disabled {
+		@apply appearance-none border-transparent bg-transparent px-0 opacity-100;
+	}
+
+	/* A square button holding one icon */
+	.icon-button {
+		@apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted pointer-coarse:h-10 pointer-coarse:w-10;
+		@apply hover:bg-panel-raised hover:text-panel-foreground disabled:pointer-events-none disabled:opacity-40;
+	}
+
+	/* A plain text button */
+	.button {
+		@apply inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-field-line px-3 font-medium whitespace-nowrap pointer-coarse:h-10;
+		@apply hover:bg-panel-raised;
+	}
+
+	/* The main action on screen */
+	.button-primary {
+		@apply inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-accent px-3 font-semibold text-accent-foreground pointer-coarse:h-11;
+		@apply hover:brightness-105 active:brightness-95;
+	}
+}
+
+/*
+ * One focus ring for every control on the panels, shown for keyboard use only. Fields swap it for
+ * an accent border. Not inside Clerk's popup, where yellow would vanish on a light background.
+ */
+@layer base {
+	.panel-scheme :focus-visible,
+	.panel-scheme:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 1px;
+	}
 }
