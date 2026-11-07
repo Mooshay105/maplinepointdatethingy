@@ -124,7 +124,6 @@ export default function EventEditor({
 				<input
 					className="field w-[5.75rem] shrink-0 px-1.5 text-right text-sm tabular-nums"
 					aria-label="Date, DD/MM/YYYY"
-					inputMode="numeric"
 					value={drafts.date ?? formatNzDate(event.date)}
 					readOnly={readOnly}
 					onChange={(e) => setDrafts((prev) => ({ ...prev, date: e.target.value }))}
@@ -170,7 +169,6 @@ export default function EventEditor({
 					<input
 						className="field tabular-nums"
 						aria-label="Latitude"
-						inputMode="decimal"
 						value={drafts.lat ?? event.lat}
 						readOnly={readOnly}
 						onChange={(e) => updateCoordinate("lat", e.target.value)}
@@ -180,7 +178,6 @@ export default function EventEditor({
 					<input
 						className="field tabular-nums"
 						aria-label="Longitude"
-						inputMode="decimal"
 						value={drafts.lng ?? event.lng}
 						readOnly={readOnly}
 						onChange={(e) => updateCoordinate("lng", e.target.value)}

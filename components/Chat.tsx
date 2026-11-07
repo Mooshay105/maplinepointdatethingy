@@ -33,12 +33,12 @@ export default function Chat({
 	}, [messages]);
 
 	if (!isSignedIn)
-		return <p className="px-4 py-6 text-muted">Sign in to plan your events with the chat.</p>;
+		return <p className="px-4 py-6 text-muted">Sign in above to plan your events with the chat.</p>;
 	if (!hasApiKey)
 		return (
 			<p className="px-4 py-6 text-muted">
-				The chat needs your OpenAI API key. Add it under Settings, in the profile menu at the
-				top of this panel.
+				The chat needs your OpenAI API key. Open your profile picture above, choose Manage
+				account, then Settings, and paste it in.
 			</p>
 		);
 

@@ -8,7 +8,7 @@ import "./globals.css";
 // font-sans and font-display, see app/globals.css.
 const barlow = Barlow({
 	subsets: ["latin"],
-	weight: ["400", "500", "600"],
+	weight: ["400", "500", "600", "700"],
 	variable: "--font-barlow",
 });
 const barlowCondensed = Barlow_Condensed({

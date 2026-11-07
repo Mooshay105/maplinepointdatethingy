@@ -891,7 +891,18 @@ export default function Home() {
 							</Show>
 						</div>
 					</div>
-					<div role="tablist" aria-label="Sidebar" className="mt-3 flex gap-6">
+					<div
+						role="tablist"
+						aria-label="Sidebar"
+						className="mt-3 flex gap-6"
+						onKeyDown={(e) => {
+							// Arrow keys move between the tabs, as for any tab list
+							if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+							const next = selectedTab === "events" ? "chat" : "events";
+							setSelectedTab(next);
+							document.getElementById(`tab-${next}`)?.focus();
+						}}
+					>
 						{tabs.map((tab) => (
 							<button
 								key={tab.id}
@@ -899,6 +910,7 @@ export default function Home() {
 								role="tab"
 								aria-selected={selectedTab === tab.id}
 								aria-controls={`panel-${tab.id}`}
+								tabIndex={selectedTab === tab.id ? 0 : -1}
 								className={`-mb-px border-b-2 pt-1 pb-2 font-display text-lg font-semibold ${selectedTab === tab.id ? "border-accent text-panel-foreground" : "border-transparent text-muted hover:text-panel-foreground"}`}
 								onClick={() => setSelectedTab(tab.id)}
 							>
@@ -971,8 +983,6 @@ export default function Home() {
 							<div className="shrink-0 border-t border-line px-4 py-3">
 								<button
 									className="button-primary w-full"
-									aria-expanded={false}
-									aria-controls="add-event-form"
 									onClick={() => setAddFormOpen(true)}
 								>
 									Add an event
@@ -997,8 +1007,6 @@ export default function Home() {
 									<button
 										type="button"
 										className="button h-7 border-transparent px-2 text-sm text-muted hover:text-panel-foreground"
-										aria-expanded={true}
-										aria-controls="add-event-form"
 										onClick={() => {
 											setAddFormOpen(false);
 											setSubmitError(null);
@@ -1019,7 +1027,6 @@ export default function Home() {
 									<input
 										className="field tabular-nums"
 										aria-label="Date, DD/MM/YYYY. Leave empty for today."
-										inputMode="numeric"
 										value={date}
 										onChange={(e) => setDate(e.target.value)}
 										placeholder="DD/MM/YYYY"
@@ -1035,7 +1042,6 @@ export default function Home() {
 									<input
 										className="field tabular-nums"
 										aria-label="Latitude"
-										inputMode="decimal"
 										value={lat}
 										onChange={(e) => setLat(e.target.value)}
 										placeholder="Latitude"
@@ -1043,7 +1049,6 @@ export default function Home() {
 									<input
 										className="field tabular-nums"
 										aria-label="Longitude"
-										inputMode="decimal"
 										value={lng}
 										onChange={(e) => setLng(e.target.value)}
 										placeholder="Longitude"

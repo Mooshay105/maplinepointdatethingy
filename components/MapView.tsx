@@ -364,7 +364,7 @@ export default function MapView({
 						>
 							{/* Just under the marker, which is centred on the point (and bigger while highlighted) */}
 							<div
-								className={`absolute left-0 -translate-x-1/2 w-max bg-panel border border-line rounded-full text-panel-foreground text-[11px] font-medium tabular-nums shadow-md shadow-black/40 px-1.5 leading-4 pointer-events-none ${event.id === highlightedId ? "top-4.5" : "top-3"}`}
+								className={`absolute left-0 -translate-x-1/2 w-max bg-panel border border-line rounded-full text-panel-foreground text-xs font-medium tabular-nums shadow-md shadow-black/40 px-1.5 leading-4 pointer-events-none ${event.id === highlightedId ? "top-4.5" : "top-3"}`}
 							>
 								{formatNzDate(event.date)}
 							</div>

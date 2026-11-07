@@ -16,6 +16,7 @@
 	--color-panel-raised: #21407f; /* Something sitting on a panel, e.g. your chat messages */
 	--color-panel-foreground: #eef2fc; /* Text on a panel */
 	--color-line: #3d5a99; /* Borders and dividers on a panel */
+	--color-field-line: #6582c2; /* Input outlines, at least 3:1 against the panel so fields are easy to find */
 	--color-muted: #a9b7dd; /* Secondary text on a panel */
 	--color-accent: #ffd84a; /* The main action, focus rings, the selected tab */
 	--color-accent-foreground: #10244f; /* Text on the accent */
@@ -46,7 +47,7 @@ body {
 @layer components {
 	/* Text inputs, selects and textareas on a panel */
 	.field {
-		@apply h-8 min-w-0 rounded-md border border-line bg-panel-sunken px-2 text-panel-foreground placeholder:text-muted/80;
+		@apply h-8 min-w-0 rounded-md border border-field-line bg-panel-sunken px-2 text-panel-foreground placeholder:text-muted/80;
 		@apply focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent;
 		/* Read-only text, e.g. a locked event, reads as plain text. Not :read-only, which every select matches */
 		@apply [&[readonly]]:border-transparent [&[readonly]]:bg-transparent disabled:opacity-60;
