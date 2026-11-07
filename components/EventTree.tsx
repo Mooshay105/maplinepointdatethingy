@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 import { Layer, MapEvent, MapGroup } from "@/utils/types";
 import { placementOf } from "@/utils/groups";
 import EventEditor from "./EventEditor";
@@ -48,6 +48,7 @@ export default function EventTree({
 					onDelete={onDeleteEvent}
 					groups={groups}
 					layers={layers}
+					collapsible
 					className="border border-line rounded-xl m-2"
 				/>
 			</div>
@@ -97,13 +98,14 @@ function Folder({
 }: {
 	kind: "group" | "layer";
 	folder: MapGroup | Layer;
-	onUpdate: (changes: { name?: string; visible?: boolean }) => void;
+	onUpdate: (changes: { name?: string; visible?: boolean; collapsed?: boolean }) => void;
 	onDelete: () => void;
 	/** Only groups get this: layers can't contain layers. */
 	onAddLayer?: () => void;
 	children: ReactNode;
 }) {
-	const [open, setOpen] = useState(true);
+	// Saved with the group or layer, so it stays folded after a reload
+	const open = !folder.collapsed;
 	const isEmpty = Array.isArray(children) ? children.flat().length === 0 : !children;
 
 	return (
@@ -113,7 +115,7 @@ function Folder({
 					className="mt-2 ml-1 px-1"
 					aria-label={open ? `Collapse ${kind}` : `Expand ${kind}`}
 					aria-expanded={open}
-					onClick={() => setOpen((v) => !v)}
+					onClick={() => onUpdate({ collapsed: open })}
 				>
 					<ChevronIcon open={open} size={20} />
 				</button>
@@ -128,7 +130,7 @@ function Folder({
 						className="border border-line rounded-md mt-2 mr-1 px-1 whitespace-nowrap"
 						title="Add a layer to this group"
 						onClick={() => {
-							setOpen(true);
+							if (!open) onUpdate({ collapsed: false });
 							onAddLayer();
 						}}
 					>

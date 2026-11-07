@@ -11,7 +11,7 @@ import {
 } from "@/utils/types";
 import { formatNzDate, parseNzDate } from "@/utils/dates";
 import { geocodeAddress } from "@/utils/geocode";
-import { EyeIcon, TrashIcon } from "./Icons";
+import { ChevronIcon, EyeIcon, TrashIcon } from "./Icons";
 import PlacementSelect from "./PlacementSelect";
 import ColorSelect from "./ColorSelect";
 
@@ -25,6 +25,7 @@ export default function EventEditor({
 	onDelete,
 	groups,
 	layers = [],
+	collapsible = false,
 	className = "",
 }: {
 	event: MapEvent;
@@ -33,6 +34,8 @@ export default function EventEditor({
 	/** Lets the event be moved between groups and layers. Left out, there's no picker. */
 	groups?: MapGroup[];
 	layers?: Layer[];
+	/** Adds a toggle that folds the event down to just its name and date (saved as event.collapsed). */
+	collapsible?: boolean;
 	className?: string;
 }) {
 	// Text the user is typing that isn't a valid value yet, so the input doesn't snap back mid-edit
@@ -43,6 +46,8 @@ export default function EventEditor({
 	// Bumped on every address edit, so a lookup that finishes after the address changed is ignored
 	const addressVersion = useRef(0);
 	const readOnly = !onUpdate;
+	const canCollapse = collapsible && !readOnly;
+	const collapsed = canCollapse && event.collapsed;
 
 	function update(changes: Partial<MapEvent>) {
 		onUpdate?.(event.id, changes);
@@ -72,9 +77,19 @@ export default function EventEditor({
 
 	return (
 		<div className={className}>
-			<div className="flex flex-row">
+			<div className={`flex flex-row items-center ${collapsed ? "mb-2" : ""}`}>
+				{canCollapse ? (
+					<button
+						className="h-8 mt-2 ml-1 px-1"
+						aria-label={collapsed ? "Expand event" : "Collapse event"}
+						aria-expanded={!collapsed}
+						onClick={() => update({ collapsed: !collapsed })}
+					>
+						<ChevronIcon open={!collapsed} size={20} />
+					</button>
+				) : null}
 				<input
-					className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
+					className={`h-8 border border-line rounded-md mt-2 ${canCollapse ? "" : "ml-2"} mr-1 px-2 w-1/2 min-w-0`}
 					value={event.name}
 					readOnly={readOnly}
 					onChange={(e) => update({ name: e.target.value })}
@@ -95,7 +110,7 @@ export default function EventEditor({
 					}}
 					placeholder="Date (DD/MM/YYYY)"
 				/>
-				{onUpdate ? (
+				{onUpdate && !collapsed ? (
 					<button
 						className="h-8 border border-line rounded-md mt-2 mr-2 px-1"
 						title={event.visible ? "Hide" : "Show"}
@@ -106,97 +121,101 @@ export default function EventEditor({
 					</button>
 				) : null}
 			</div>
-			{readOnly && !event.address ? null : (
-				<input
-					className={`block h-8 border rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)] ${lookupFailed ? "border-danger" : "border-line"}`}
-					value={event.address}
-					readOnly={readOnly}
-					title={lookupFailed ? "Couldn't find this address" : undefined}
-					onFocus={() => (addressOnFocus.current = event.address)}
-					onChange={(e) => {
-						addressVersion.current++;
-						setLookupFailed(false);
-						update({ address: e.target.value });
-					}}
-					onBlur={lookUpAddress}
-					onKeyDown={(e) => {
-						if (e.key === "Enter") e.currentTarget.blur();
-					}}
-					placeholder="Address"
-				/>
-			)}
-			<div className="flex flex-row">
-				<input
-					className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
-					value={drafts.lat ?? event.lat}
-					readOnly={readOnly}
-					onChange={(e) => updateCoordinate("lat", e.target.value)}
-					onBlur={() => clearDraft("lat")}
-					placeholder="Latitude"
-				/>
-				<input
-					className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2 min-w-0"
-					value={drafts.lng ?? event.lng}
-					readOnly={readOnly}
-					onChange={(e) => updateCoordinate("lng", e.target.value)}
-					onBlur={() => clearDraft("lng")}
-					placeholder="Longitude"
-				/>
-				{onDelete ? (
-					<button
-						className="h-8 border border-line rounded-md mt-2 mr-2 px-1"
-						title="Delete"
-						aria-label="Delete event"
-						onClick={() => onDelete(event.id)}
-					>
-						<TrashIcon />
-					</button>
-				) : null}
-			</div>
-			<div className="flex flex-row">
-				<select
-					className="h-8 border border-line bg-panel rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
-					value={event.icon}
-					disabled={readOnly}
-					onChange={(e) => update({ icon: e.target.value as EventIcon })}
-				>
-					{EVENT_ICONS.map((icon) => (
-						<option key={icon} value={icon}>
-							{ICON_LABELS[icon]}
-						</option>
-					))}
-				</select>
-				<ColorSelect
-					// "contents" puts the dropdown and swatch straight into this row, so they line up
-					// with the lat/lng inputs and delete button above
-					className="contents"
-					selectClassName="h-8 border border-line bg-panel rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-					swatchClassName="mt-2 mr-2"
-					value={event.iconColor}
-					disabled={readOnly}
-					onChange={(iconColor) => update({ iconColor })}
-				/>
-			</div>
-			{groups && !readOnly ? (
-				<PlacementSelect
-					className="block h-8 border border-line bg-panel rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)]"
-					value={event}
-					groups={groups}
-					layers={layers}
-					onChange={update}
-				/>
-			) : null}
-			{readOnly && !event.description ? (
-				<div className="mb-2" />
-			) : (
-				<textarea
-					className="block border border-line rounded-md mt-2 mb-2 mx-2 px-2 w-[calc(100%-16px)] resize-y min-h-[2.5em]"
-					rows={2}
-					value={event.description}
-					readOnly={readOnly}
-					onChange={(e) => update({ description: e.target.value })}
-					placeholder="Description"
-				/>
+			{collapsed ? null : (
+				<>
+					{readOnly && !event.address ? null : (
+						<input
+							className={`block h-8 border rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)] ${lookupFailed ? "border-danger" : "border-line"}`}
+							value={event.address}
+							readOnly={readOnly}
+							title={lookupFailed ? "Couldn't find this address" : undefined}
+							onFocus={() => (addressOnFocus.current = event.address)}
+							onChange={(e) => {
+								addressVersion.current++;
+								setLookupFailed(false);
+								update({ address: e.target.value });
+							}}
+							onBlur={lookUpAddress}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") e.currentTarget.blur();
+							}}
+							placeholder="Address"
+						/>
+					)}
+					<div className="flex flex-row">
+						<input
+							className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
+							value={drafts.lat ?? event.lat}
+							readOnly={readOnly}
+							onChange={(e) => updateCoordinate("lat", e.target.value)}
+							onBlur={() => clearDraft("lat")}
+							placeholder="Latitude"
+						/>
+						<input
+							className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2 min-w-0"
+							value={drafts.lng ?? event.lng}
+							readOnly={readOnly}
+							onChange={(e) => updateCoordinate("lng", e.target.value)}
+							onBlur={() => clearDraft("lng")}
+							placeholder="Longitude"
+						/>
+						{onDelete ? (
+							<button
+								className="h-8 border border-line rounded-md mt-2 mr-2 px-1"
+								title="Delete"
+								aria-label="Delete event"
+								onClick={() => onDelete(event.id)}
+							>
+								<TrashIcon />
+							</button>
+						) : null}
+					</div>
+					<div className="flex flex-row">
+						<select
+							className="h-8 border border-line bg-panel rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
+							value={event.icon}
+							disabled={readOnly}
+							onChange={(e) => update({ icon: e.target.value as EventIcon })}
+						>
+							{EVENT_ICONS.map((icon) => (
+								<option key={icon} value={icon}>
+									{ICON_LABELS[icon]}
+								</option>
+							))}
+						</select>
+						<ColorSelect
+							// "contents" puts the dropdown and swatch straight into this row, so they line up
+							// with the lat/lng inputs and delete button above
+							className="contents"
+							selectClassName="h-8 border border-line bg-panel rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
+							swatchClassName="mt-2 mr-2"
+							value={event.iconColor}
+							disabled={readOnly}
+							onChange={(iconColor) => update({ iconColor })}
+						/>
+					</div>
+					{groups && !readOnly ? (
+						<PlacementSelect
+							className="block h-8 border border-line bg-panel rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)]"
+							value={event}
+							groups={groups}
+							layers={layers}
+							onChange={update}
+						/>
+					) : null}
+					{readOnly && !event.description ? (
+						<div className="mb-2" />
+					) : (
+						<textarea
+							className="block border border-line rounded-md mt-2 mb-2 mx-2 px-2 w-[calc(100%-16px)] resize-y min-h-[2.5em]"
+							rows={2}
+							value={event.description}
+							readOnly={readOnly}
+							onChange={(e) => update({ description: e.target.value })}
+							placeholder="Description"
+						/>
+					)}
+				</>
 			)}
 		</div>
 	);

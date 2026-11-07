@@ -18,6 +18,7 @@ export async function loadEvents(): Promise<MapEvent[]> {
 				groupId: null,
 				layerId: null,
 				travelNote: "",
+				collapsed: false,
 			}),
 		);
 		await eventsSync.createEvents(legacy);

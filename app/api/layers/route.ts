@@ -17,9 +17,9 @@ export async function POST(req: Request) {
 
 	await ensureSchema();
 	await db.execute({
-		sql: `INSERT OR IGNORE INTO layers (id, user_id, group_id, name, visible, created)
-			VALUES (?, ?, ?, ?, ?, ?)`,
-		args: [l.id, userId, l.groupId, l.name, l.visible ? 1 : 0, Date.now()],
+		sql: `INSERT OR IGNORE INTO layers (id, user_id, group_id, name, visible, collapsed, created)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		args: [l.id, userId, l.groupId, l.name, l.visible ? 1 : 0, l.collapsed ? 1 : 0, Date.now()],
 	});
 	return NextResponse.json({ ok: true }, { status: 201 });
 }
