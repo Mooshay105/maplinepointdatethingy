@@ -38,6 +38,10 @@ describe("formatNzDate", () => {
 		const date = new Date(2025, 11, 25);
 		expect(parseNzDate(formatNzDate(date))?.getTime()).toBe(date.getTime());
 	});
+
+	test("pads the day and month to two digits", () => {
+		expect(formatNzDate(new Date(2026, 6, 1))).toBe("01/07/2026");
+	});
 });
 
 describe("daysBetween", () => {

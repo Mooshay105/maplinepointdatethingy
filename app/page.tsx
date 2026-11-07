@@ -829,6 +829,7 @@ export default function Home() {
 											<div className="border-b border-modal-line mt-3.75 mb-5" />
 											<label className="flex flex-row items-center gap-1 text-[13px]">
 												<input
+													className="size-4 accent-panel"
 													type="checkbox"
 													checked={settings.alwaysShowHoverMenus}
 													onChange={(e) =>
@@ -842,6 +843,7 @@ export default function Home() {
 											</label>
 											<label className="flex flex-row items-center gap-1 text-[13px] mt-2">
 												<input
+													className="size-4 accent-panel"
 													type="checkbox"
 													checked={settings.showDatesOnMap}
 													onChange={(e) =>
@@ -931,7 +933,10 @@ export default function Home() {
 						aria-labelledby="tab-events"
 						className="flex min-h-0 flex-1 flex-col"
 					>
-						<div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+						{/* On phones an open add form takes the list's place, as there's no room for both */}
+						<div
+							className={`min-h-0 flex-1 overflow-y-auto px-2 pb-3 ${addFormOpen ? "max-md:hidden" : ""}`}
+						>
 							{!authLoaded ? (
 								<p className="px-2 py-6 text-muted">Loading…</p>
 							) : !isSignedIn ? (
@@ -993,7 +998,7 @@ export default function Home() {
 							<form
 								id="add-event-form"
 								// Scrolls on its own when there isn't room, e.g. on a phone with the keyboard open
-								className="max-h-[65%] shrink-0 overflow-y-auto border-t border-line bg-panel-sunken/60 px-4 pt-3 pb-4"
+								className="shrink-0 overflow-y-auto border-t max-md:min-h-0 max-md:flex-1 md:max-h-[65%] border-line bg-panel-sunken/60 px-4 pt-3 pb-4"
 								aria-labelledby="add-event-heading"
 								onSubmit={handleAddEventSubmit}
 							>

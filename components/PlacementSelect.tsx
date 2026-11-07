@@ -22,6 +22,7 @@ export default function PlacementSelect({
 	return (
 		<select
 			className={className}
+			aria-label="Group or layer"
 			value={placementValue(value, groups, layers)}
 			disabled={disabled}
 			onChange={(e) => onChange(parsePlacementValue(e.target.value, layers))}

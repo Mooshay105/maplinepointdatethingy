@@ -53,7 +53,7 @@ body {
 @layer components {
 	/* Text inputs, selects and textareas on a panel */
 	.field {
-		@apply h-8 min-w-0 rounded-md border border-field-line bg-panel-sunken px-2 text-panel-foreground placeholder:text-muted/80 pointer-coarse:h-10;
+		@apply h-8 min-w-0 rounded-md border border-field-line bg-panel-sunken px-2 text-panel-foreground placeholder:text-muted/80 pointer-coarse:h-10 pointer-coarse:text-base;
 		@apply focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent;
 		/* Read-only text, e.g. a locked event, reads as plain text. Not :read-only, which every select matches */
 		@apply [&[readonly]]:border-transparent [&[readonly]]:bg-transparent disabled:opacity-60;

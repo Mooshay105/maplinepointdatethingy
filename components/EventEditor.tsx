@@ -110,7 +110,7 @@ export default function EventEditor({
 				<span
 					aria-hidden="true"
 					// Hollow while the event is hidden from the map
-					className={`h-3 w-3 shrink-0 rounded-full border-2 ${canCollapse ? "" : "ml-1"}`}
+					className={`h-3 w-3 shrink-0 rounded-full border-2 ${canCollapse ? "" : "ml-1"} ${event.visible ? "" : "opacity-60"}`}
 					style={{
 						borderColor: colorHex(event.iconColor),
 						background: event.visible ? colorHex(event.iconColor) : "transparent",
@@ -118,7 +118,7 @@ export default function EventEditor({
 				/>
 				<input
 					// Reads as the card's title, and shows its outline on hover or focus like the folder names
-					className="field flex-1 border-transparent bg-transparent px-1.5 font-display text-[1.0625rem] font-semibold hover:border-field-line focus-visible:border-accent"
+					className={`field flex-1 border-transparent bg-transparent px-1.5 font-display text-[1.0625rem] font-semibold hover:border-field-line focus-visible:border-accent pointer-coarse:border-b-field-line/50 ${event.visible ? "" : "text-muted"}`}
 					aria-label="Name"
 					value={event.name}
 					readOnly={readOnly}
@@ -142,6 +142,13 @@ export default function EventEditor({
 					}}
 					placeholder="DD/MM/YYYY"
 				/>
+				{/* The event's state at a glance, also on a collapsed card */}
+				{!event.visible || event.locked ? (
+					<span className="flex shrink-0 items-center gap-1 text-muted">
+						{!event.visible ? <EyeIcon crossed size={14} aria-hidden={false} aria-label="Hidden" role="img" /> : null}
+						{event.locked ? <LockIcon size={14} aria-hidden={false} aria-label="Locked" role="img" /> : null}
+					</span>
+				) : null}
 			</div>
 			{collapsed ? null : (
 				<div className="grid grid-cols-2 gap-1.5 px-3 pb-2.5 text-sm">
@@ -233,7 +240,7 @@ export default function EventEditor({
 					{editable ? (
 						<div className="col-span-2 -mb-1 flex items-center justify-end gap-1">
 							{event.locked ? (
-								<p className="mr-auto text-sm text-muted">Locked. Unlock to make changes.</p>
+								<p className="mr-auto text-sm text-muted">Locked</p>
 							) : null}
 							<button
 								className="icon-button"
