@@ -289,7 +289,7 @@ export default function MapView({
 				<div ref={ref} className="w-full h-full" />
 				{map ? (
 					<button
-						className="absolute top-3 right-3 flex flex-row items-center gap-1.5 bg-panel border border-line rounded-lg text-panel-foreground text-sm shadow-md shadow-black/50 px-2.5 py-1.5 cursor-pointer hover:bg-panel-raised"
+						className="absolute bottom-8 right-3 flex flex-row items-center gap-1.5 bg-panel border border-line rounded-lg text-panel-foreground text-sm shadow-md shadow-black/50 px-2.5 py-1.5 cursor-pointer hover:bg-panel-raised"
 						aria-pressed={satellite}
 						title={satellite ? "Switch to the map view" : "Switch to the satellite view"}
 						onClick={toggleSatellite}
