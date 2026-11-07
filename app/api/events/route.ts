@@ -35,8 +35,8 @@ export async function POST(req: Request) {
 	await ensureSchema();
 	await db.batch(
 		events.map((e) => ({
-			sql: `INSERT OR IGNORE INTO events (id, user_id, name, description, address, lat, lng, date, icon, icon_color, visible, group_id, layer_id, travel_note)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			sql: `INSERT OR IGNORE INTO events (id, user_id, name, description, address, lat, lng, date, icon, icon_color, visible, group_id, layer_id, travel_note, collapsed)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			args: [
 				e.id,
 				userId,
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
 				e.groupId,
 				e.layerId,
 				e.travelNote,
+				e.collapsed ? 1 : 0,
 			],
 		})),
 		"write",

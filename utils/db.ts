@@ -34,7 +34,8 @@ async function createSchema() {
 			address TEXT NOT NULL DEFAULT '',
 			group_id INTEGER,
 			layer_id INTEGER,
-			travel_note TEXT NOT NULL DEFAULT ''
+			travel_note TEXT NOT NULL DEFAULT '',
+			collapsed INTEGER NOT NULL DEFAULT 0
 		)`,
 	);
 	await db.execute("CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id)");
@@ -44,6 +45,7 @@ async function createSchema() {
 			user_id TEXT NOT NULL,
 			name TEXT NOT NULL,
 			visible INTEGER NOT NULL DEFAULT 1,
+			collapsed INTEGER NOT NULL DEFAULT 0,
 			created INTEGER NOT NULL
 		)`,
 	);
@@ -55,6 +57,7 @@ async function createSchema() {
 			group_id INTEGER NOT NULL,
 			name TEXT NOT NULL,
 			visible INTEGER NOT NULL DEFAULT 1,
+			collapsed INTEGER NOT NULL DEFAULT 0,
 			created INTEGER NOT NULL
 		)`,
 	);
@@ -78,8 +81,17 @@ async function createSchema() {
 	if (!existingColumns.includes("travel_note")) {
 		await db.execute("ALTER TABLE events ADD COLUMN travel_note TEXT NOT NULL DEFAULT ''");
 	}
+	if (!existingColumns.includes("collapsed")) {
+		await db.execute("ALTER TABLE events ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0");
+	}
 	if (existingColumns.includes("visable")) {
 		await db.execute("ALTER TABLE events RENAME COLUMN visable TO visible");
+	}
+	for (const table of ["map_groups", "layers"]) {
+		const info = await db.execute(`PRAGMA table_info(${table})`);
+		if (!info.rows.some((r) => String(r.name) === "collapsed")) {
+			await db.execute(`ALTER TABLE ${table} ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0`);
+		}
 	}
 }
 
@@ -106,6 +118,7 @@ export const eventSchema = z.object({
 	groupId: idSchema.nullable(),
 	layerId: idSchema.nullable(),
 	travelNote: z.string(),
+	collapsed: z.boolean(),
 });
 
 export const eventChangesSchema = eventSchema.omit({ id: true }).partial();
@@ -127,6 +140,7 @@ export function rowToEvent(row: Row): z.infer<typeof eventSchema> {
 		groupId: nullableId(row.group_id),
 		layerId: nullableId(row.layer_id),
 		travelNote: String(row.travel_note ?? ""),
+		collapsed: Boolean(row.collapsed),
 	};
 }
 
@@ -148,12 +162,14 @@ export const columns: Record<keyof EventChanges, string> = {
 	groupId: "group_id",
 	layerId: "layer_id",
 	travelNote: "travel_note",
+	collapsed: "collapsed",
 };
 
 export const groupSchema = z.object({
 	id: idSchema,
 	name: z.string(),
 	visible: z.boolean(),
+	collapsed: z.boolean(),
 });
 
 export const groupChangesSchema = groupSchema.omit({ id: true }).partial();
@@ -161,6 +177,7 @@ export const groupChangesSchema = groupSchema.omit({ id: true }).partial();
 export const groupColumns: Record<keyof z.infer<typeof groupChangesSchema>, string> = {
 	name: "name",
 	visible: "visible",
+	collapsed: "collapsed",
 };
 
 export const layerSchema = groupSchema.extend({ groupId: idSchema });
@@ -171,7 +188,12 @@ export const layerChangesSchema = groupChangesSchema;
 export const layerColumns = groupColumns;
 
 export function rowToGroup(row: Row): z.infer<typeof groupSchema> {
-	return { id: Number(row.id), name: String(row.name), visible: Boolean(row.visible) };
+	return {
+		id: Number(row.id),
+		name: String(row.name),
+		visible: Boolean(row.visible),
+		collapsed: Boolean(row.collapsed),
+	};
 }
 
 export function rowToLayer(row: Row): z.infer<typeof layerSchema> {

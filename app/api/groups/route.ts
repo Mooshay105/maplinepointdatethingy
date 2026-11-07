@@ -37,9 +37,9 @@ export async function POST(req: Request) {
 
 	await ensureSchema();
 	await db.execute({
-		sql: `INSERT OR IGNORE INTO map_groups (id, user_id, name, visible, created)
-			VALUES (?, ?, ?, ?, ?)`,
-		args: [g.id, userId, g.name, g.visible ? 1 : 0, Date.now()],
+		sql: `INSERT OR IGNORE INTO map_groups (id, user_id, name, visible, collapsed, created)
+			VALUES (?, ?, ?, ?, ?, ?)`,
+		args: [g.id, userId, g.name, g.visible ? 1 : 0, g.collapsed ? 1 : 0, Date.now()],
 	});
 	return NextResponse.json({ ok: true }, { status: 201 });
 }

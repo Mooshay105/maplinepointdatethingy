@@ -134,6 +134,8 @@ export type MapEvent = {
 	 * Shown on the line leading into this event.
 	 */
 	travelNote: string;
+	/** Whether the sidebar shows just its name and date. */
+	collapsed: boolean;
 };
 
 /** A folder of events and layers that can be hidden from the map all at once. */
@@ -141,6 +143,8 @@ export type MapGroup = {
 	id: number;
 	name: string;
 	visible: boolean;
+	/** Whether the sidebar folds it shut. */
+	collapsed: boolean;
 };
 
 /** A folder of events inside a group. Layers can't contain other layers. */
@@ -149,11 +153,20 @@ export type Layer = {
 	groupId: number;
 	name: string;
 	visible: boolean;
+	/** Whether the sidebar folds it shut. */
+	collapsed: boolean;
 };
 
 export type LegacyEvent = Omit<
 	MapEvent,
-	"date" | "description" | "address" | "visible" | "groupId" | "layerId" | "travelNote"
+	| "date"
+	| "description"
+	| "address"
+	| "visible"
+	| "groupId"
+	| "layerId"
+	| "travelNote"
+	| "collapsed"
 > & {
 	date: string;
 	description?: string;

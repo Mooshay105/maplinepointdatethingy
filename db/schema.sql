@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS events (
 	address TEXT NOT NULL DEFAULT '',  -- raw address as the user typed it
 	group_id INTEGER,                 -- map_groups.id, or NULL when ungrouped (also set for events in a layer)
 	layer_id INTEGER,                 -- layers.id, or NULL when not in a layer
-	travel_note TEXT NOT NULL DEFAULT '' -- notes on getting here from the previous event, e.g. train time
+	travel_note TEXT NOT NULL DEFAULT '', -- notes on getting here from the previous event, e.g. train time
+	collapsed INTEGER NOT NULL DEFAULT 0 -- 0 or 1, whether the sidebar shows just its name and date
 );
 
 -- Upgrades for databases created by older versions (the app also runs these automatically):
@@ -26,6 +27,9 @@ CREATE TABLE IF NOT EXISTS events (
 -- ALTER TABLE events ADD COLUMN group_id INTEGER;
 -- ALTER TABLE events ADD COLUMN layer_id INTEGER;
 -- ALTER TABLE events ADD COLUMN travel_note TEXT NOT NULL DEFAULT '';
+-- ALTER TABLE events ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0;
+-- ALTER TABLE map_groups ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0;
+-- ALTER TABLE layers ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id);
 
@@ -34,6 +38,7 @@ CREATE TABLE IF NOT EXISTS map_groups (
 	user_id TEXT NOT NULL,
 	name TEXT NOT NULL,
 	visible INTEGER NOT NULL DEFAULT 1, -- 0 or 1
+	collapsed INTEGER NOT NULL DEFAULT 0, -- 0 or 1, whether the sidebar folds it shut
 	created INTEGER NOT NULL          -- epoch milliseconds, for keeping the groups in order
 );
 
@@ -46,6 +51,7 @@ CREATE TABLE IF NOT EXISTS layers (
 	group_id INTEGER NOT NULL,        -- map_groups.id
 	name TEXT NOT NULL,
 	visible INTEGER NOT NULL DEFAULT 1, -- 0 or 1
+	collapsed INTEGER NOT NULL DEFAULT 0, -- 0 or 1, whether the sidebar folds it shut
 	created INTEGER NOT NULL          -- epoch milliseconds
 );
 

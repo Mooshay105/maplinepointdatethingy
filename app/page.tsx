@@ -41,6 +41,7 @@ import {
 	EditEventInput,
 	EditGroupInput,
 	EditLayerInput,
+	SetCollapsedInput,
 	SetTravelNoteInput,
 	SetVisibilityInput,
 } from "@/utils/chatTools";
@@ -174,13 +175,41 @@ export default function Home() {
 		for (const id of layerIds) groupsSync.updateLayer(id, { visible });
 	}
 
+	/** Collapses or expands many events, groups and layers in the sidebar at once. */
+	function setCollapsed(
+		collapsed: boolean,
+		ids: { eventIds: number[]; groupIds: number[]; layerIds: number[] },
+	) {
+		const eventIds = new Set(ids.eventIds);
+		const groupIds = new Set(ids.groupIds);
+		const layerIds = new Set(ids.layerIds);
+		setEvents((prev) =>
+			prev.map((event) => (eventIds.has(event.id) ? { ...event, collapsed } : event)),
+		);
+		setGroups((prev) =>
+			prev.map((group) => (groupIds.has(group.id) ? { ...group, collapsed } : group)),
+		);
+		setLayers((prev) =>
+			prev.map((layer) => (layerIds.has(layer.id) ? { ...layer, collapsed } : layer)),
+		);
+		for (const id of eventIds) eventsSync.updateEvent(id, { collapsed });
+		for (const id of groupIds) groupsSync.updateGroup(id, { collapsed });
+		for (const id of layerIds) groupsSync.updateLayer(id, { collapsed });
+	}
+
 	function deleteEvent(id: number) {
 		setEvents((prev) => prev.filter((event) => event.id !== id));
 		eventsSync.deleteEvent(id);
 	}
 
 	function addGroup(fields: Partial<Omit<MapGroup, "id">> = {}): MapGroup {
-		const group: MapGroup = { name: "", visible: true, ...fields, id: newId() };
+		const group: MapGroup = {
+			name: "",
+			visible: true,
+			collapsed: false,
+			...fields,
+			id: newId(),
+		};
 		setGroups((prev) => [...prev, group]);
 		groupsSync.createGroup(group);
 		return group;
@@ -208,7 +237,14 @@ export default function Home() {
 		groupId: number,
 		fields: Partial<Omit<Layer, "id" | "groupId">> = {},
 	): Layer {
-		const layer: Layer = { name: "", visible: true, ...fields, id: newId(), groupId };
+		const layer: Layer = {
+			name: "",
+			visible: true,
+			collapsed: false,
+			...fields,
+			id: newId(),
+			groupId,
+		};
 		setLayers((prev) => [...prev, layer]);
 		groupsSync.createLayer(layer);
 		return layer;
@@ -267,6 +303,7 @@ export default function Home() {
 			id: newId(),
 			date: parsedDate,
 			visible: true,
+			collapsed: false,
 		};
 		setEvents((prev) =>
 			[...prev, event].sort((a, b) => a.date.getTime() - b.date.getTime()),
@@ -463,6 +500,7 @@ export default function Home() {
 					latitude: event.lat,
 					longitude: event.lng,
 					visible: event.visible,
+					collapsed: event.collapsed,
 					groupId: event.groupId,
 					layerId: event.layerId,
 					travelNote: event.travelNote,
@@ -499,9 +537,15 @@ export default function Home() {
 					id: group.id,
 					name: group.name,
 					visible: group.visible,
+					collapsed: group.collapsed,
 					layers: layersRef.current
 						.filter((layer) => layer.groupId === group.id)
-						.map((layer) => ({ id: layer.id, name: layer.name, visible: layer.visible })),
+						.map((layer) => ({
+							id: layer.id,
+							name: layer.name,
+							visible: layer.visible,
+							collapsed: layer.collapsed,
+						})),
 				}));
 				respond(JSON.stringify(list));
 			} else if (toolCall.toolName === "addGroup") {
@@ -587,6 +631,44 @@ export default function Home() {
 				setVisibility(visible, { eventIds, groupIds, layerIds });
 				respond(
 					`${visible ? "Showed" : "Hid"} ${eventIds.length} events, ${groupIds.length} groups and ${layerIds.length} layers`,
+				);
+			} else if (
+				toolCall.toolName === "collapseItems" ||
+				toolCall.toolName === "expandItems"
+			) {
+				const input = toolCall.input as SetCollapsedInput;
+				const collapsed = toolCall.toolName === "collapseItems";
+				const eventIds = input.allEvents
+					? eventsRef.current.map((event) => event.id)
+					: (input.eventIds ?? []);
+				const groupIds = input.allGroups
+					? groupsRef.current.map((group) => group.id)
+					: (input.groupIds ?? []);
+				const layerIds = input.allLayers
+					? layersRef.current.map((layer) => layer.id)
+					: (input.layerIds ?? []);
+				const missing = [
+					...eventIds
+						.filter((id) => !eventsRef.current.some((event) => event.id === id))
+						.map((id) => `event ${id}`),
+					...groupIds
+						.filter((id) => !groupsRef.current.some((group) => group.id === id))
+						.map((id) => `group ${id}`),
+					...layerIds
+						.filter((id) => !layersRef.current.some((layer) => layer.id === id))
+						.map((id) => `layer ${id}`),
+				];
+				if (missing.length > 0) {
+					respond(`Nothing changed. These don't exist: ${missing.join(", ")}`);
+					return;
+				}
+				if (eventIds.length + groupIds.length + layerIds.length === 0) {
+					respond("Nothing changed, no ids were given");
+					return;
+				}
+				setCollapsed(collapsed, { eventIds, groupIds, layerIds });
+				respond(
+					`${collapsed ? "Collapsed" : "Expanded"} ${eventIds.length} events, ${groupIds.length} groups and ${layerIds.length} layers`,
 				);
 			} else if (toolCall.toolName === "geoLookup") {
 				// Executed on the server (OpenStreetMap), output arrives in the stream

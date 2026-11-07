@@ -127,6 +127,25 @@ export const setVisibilityInput = z.object({
 		.describe("Set to true to apply this to every event, instead of listing their ids"),
 });
 
+/** Shared by collapseItems and expandItems. */
+export const setCollapsedInput = z.object({
+	eventIds: z.array(z.number()).optional().describe("The ids of the events"),
+	groupIds: z.array(z.number()).optional().describe("The ids of the groups"),
+	layerIds: z.array(z.number()).optional().describe("The ids of the layers"),
+	allEvents: z
+		.boolean()
+		.optional()
+		.describe("Set to true to apply this to every event, instead of listing their ids"),
+	allGroups: z
+		.boolean()
+		.optional()
+		.describe("Set to true to apply this to every group, instead of listing their ids"),
+	allLayers: z
+		.boolean()
+		.optional()
+		.describe("Set to true to apply this to every layer, instead of listing their ids"),
+});
+
 export type AddEventInput = z.infer<typeof addEventInput>;
 export type EditEventInput = z.infer<typeof editEventInput>;
 export type SetTravelNoteInput = z.infer<typeof setTravelNoteInput>;
@@ -138,3 +157,4 @@ export type AddLayerInput = z.infer<typeof addLayerInput>;
 export type EditLayerInput = z.infer<typeof editLayerInput>;
 export type DeleteLayerInput = z.infer<typeof deleteLayerInput>;
 export type SetVisibilityInput = z.infer<typeof setVisibilityInput>;
+export type SetCollapsedInput = z.infer<typeof setCollapsedInput>;
