@@ -497,7 +497,7 @@ function MapAnchor({
 		const div = document.createElement("div");
 		div.style.position = "absolute";
 		// Google Maps sets its own font on everything inside the map, so put the site's back
-		div.className = "font-sans";
+		div.className = "font-sans panel-scheme";
 		// The map has keyboard shortcuts (arrows, +/-) that would otherwise fire while typing in the menu
 		for (const type of ["keydown", "keyup", "keypress"]) {
 			div.addEventListener(type, (e) => e.stopPropagation());

@@ -795,7 +795,7 @@ export default function Home() {
 				layers={layers}
 				highlightedId={hoveredEventId}
 			/>
-			<aside className="flex min-h-0 flex-1 flex-col border-t border-line bg-panel text-panel-foreground md:order-first md:w-[clamp(380px,30vw,460px)] md:flex-none md:border-t-0 md:border-r">
+			<aside className="panel-scheme flex min-h-0 flex-1 flex-col border-t border-line bg-panel text-panel-foreground md:order-first md:w-[clamp(380px,30vw,460px)] md:flex-none md:border-t-0 md:border-r">
 				<header className="px-4 pt-3">
 					<div className="flex items-center justify-between gap-3">
 						<h1 className="font-display text-xl leading-tight font-semibold">

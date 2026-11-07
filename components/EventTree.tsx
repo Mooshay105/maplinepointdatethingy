@@ -39,6 +39,8 @@ export default function EventTree({
 		return placed.filter(filter).map(({ event }) => (
 			<div
 				key={event.id}
+				// Dimmed while hidden, like a hidden group or layer
+				className={event.visible ? "" : "opacity-60"}
 				onMouseEnter={() => onHoverEvent?.(event.id)}
 				onMouseLeave={() => onHoverEvent?.(null)}
 			>
@@ -120,7 +122,7 @@ function Folder({
 					<ChevronIcon open={open} size={18} />
 				</button>
 				<input
-					className={`field flex-1 border-transparent border-b-line/60 bg-transparent px-1.5 font-display font-semibold hover:border-line ${kind === "group" ? "text-lg" : "text-base"}`}
+					className={`field flex-1 border-transparent border-b-line/60 bg-transparent px-1.5 font-display font-semibold hover:border-field-line focus-visible:border-accent ${kind === "group" ? "text-lg" : "text-base"}`}
 					aria-label={kind === "group" ? "Group name" : "Layer name"}
 					value={folder.name}
 					onChange={(e) => onUpdate({ name: e.target.value })}

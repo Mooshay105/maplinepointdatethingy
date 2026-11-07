@@ -35,7 +35,13 @@
 body {
 	background: var(--color-panel);
 	color: var(--color-panel-foreground);
-	/* Dark scrollbars, dropdown menus and pickers to match the panels */
+}
+
+/*
+ * Dark scrollbars, dropdown menus and pickers on the panels. Not on body, since Clerk's profile
+ * popup (and the Settings page in it) is light.
+ */
+.panel-scheme {
 	color-scheme: dark;
 	scrollbar-color: var(--color-line) transparent;
 }
@@ -47,7 +53,7 @@ body {
 @layer components {
 	/* Text inputs, selects and textareas on a panel */
 	.field {
-		@apply h-8 min-w-0 rounded-md border border-field-line bg-panel-sunken px-2 text-panel-foreground placeholder:text-muted/80;
+		@apply h-8 min-w-0 rounded-md border border-field-line bg-panel-sunken px-2 text-panel-foreground placeholder:text-muted/80 pointer-coarse:h-10;
 		@apply focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent;
 		/* Read-only text, e.g. a locked event, reads as plain text. Not :read-only, which every select matches */
 		@apply [&[readonly]]:border-transparent [&[readonly]]:bg-transparent disabled:opacity-60;
@@ -65,7 +71,7 @@ body {
 
 	/* A square button holding one icon */
 	.icon-button {
-		@apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted;
+		@apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted pointer-coarse:h-10 pointer-coarse:w-10;
 		@apply hover:bg-panel-raised hover:text-panel-foreground disabled:pointer-events-none disabled:opacity-40;
 	}
 

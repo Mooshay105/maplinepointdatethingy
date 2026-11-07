@@ -82,7 +82,7 @@ export default function EventEditor({
 	const lockButton = editable ? (
 		// The one control a locked event keeps
 		<button
-			className={`icon-button ${event.locked ? "text-accent" : ""}`}
+			className={`icon-button ${event.locked ? "text-panel-foreground" : ""}`}
 			title={event.locked ? "Unlock" : "Lock (stops all changes until unlocked)"}
 			aria-label={event.locked ? "Unlock event" : "Lock event"}
 			aria-pressed={event.locked}
@@ -109,11 +109,16 @@ export default function EventEditor({
 				{/* The marker's colour, to match this card to its spot on the map */}
 				<span
 					aria-hidden="true"
-					className={`h-3 w-3 shrink-0 rounded-full ring-1 ring-panel-foreground/40 ${canCollapse ? "" : "ml-1"}`}
-					style={{ background: colorHex(event.iconColor) }}
+					// Hollow while the event is hidden from the map
+					className={`h-3 w-3 shrink-0 rounded-full border-2 ${canCollapse ? "" : "ml-1"}`}
+					style={{
+						borderColor: colorHex(event.iconColor),
+						background: event.visible ? colorHex(event.iconColor) : "transparent",
+					}}
 				/>
 				<input
-					className="field flex-1 px-1.5 font-display text-[1.0625rem] font-semibold"
+					// Reads as the card's title, and shows its outline on hover or focus like the folder names
+					className="field flex-1 border-transparent bg-transparent px-1.5 font-display text-[1.0625rem] font-semibold hover:border-field-line focus-visible:border-accent"
 					aria-label="Name"
 					value={event.name}
 					readOnly={readOnly}
@@ -122,7 +127,7 @@ export default function EventEditor({
 					placeholder="Untitled event"
 				/>
 				<input
-					className="field w-[5.75rem] shrink-0 px-1.5 text-right text-sm tabular-nums"
+					className="field w-[5.75rem] shrink-0 border-transparent bg-transparent px-1.5 text-right text-sm tabular-nums hover:border-field-line focus-visible:border-accent"
 					aria-label="Date, DD/MM/YYYY"
 					value={drafts.date ?? formatNzDate(event.date)}
 					readOnly={readOnly}
