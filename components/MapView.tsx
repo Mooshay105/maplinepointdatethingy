@@ -17,6 +17,7 @@ import {
 } from "@/utils/types";
 import { daysBetween } from "@/utils/dates";
 import EventEditor from "./EventEditor";
+import { LayersIcon } from "./Icons";
 
 // Maps JavaScript API keys are public by design (they end up in the browser); restrict them by
 // HTTP referrer in the Google Cloud console instead of keeping them secret.
@@ -69,6 +70,9 @@ async function iconUrl(icon: EventIcon, color: EventColor): Promise<string> {
 
 /** How long a hover menu lingers after the mouse leaves, so it can travel from the marker into the menu. */
 const HOVER_HIDE_DELAY_MS = 250;
+
+/** Remembers whether the map was last shown as satellite, across reloads. */
+const SATELLITE_STORAGE_KEY = "mapSatellite";
 
 const MARKER_SIZE = 20;
 /** A highlighted marker (e.g. its event is hovered in the sidebar) is drawn bigger and on top. */
@@ -137,6 +141,7 @@ export default function MapView({
 	const [hoveredId, setHoveredId] = useState<number | null>(null);
 	// Keeps a menu open while one of its inputs has focus, even if the mouse wanders off
 	const [focusedId, setFocusedId] = useState<number | null>(null);
+	const [satellite, setSatellite] = useState(false);
 	// The markers are rebuilt whenever events change, so read the latest handler through a ref
 	// instead of rebuilding them when only onUpdate changes
 	const onUpdateRef = useRef(onUpdate);
@@ -169,6 +174,7 @@ export default function MapView({
 					zoom: 2,
 					disableDefaultUI: true,
 				});
+				if (localStorage.getItem(SATELLITE_STORAGE_KEY) === "1") setSatellite(true);
 				// Touch screens have no hover, so tapping the map closes an open menu (and tapping a marker opens one, below)
 				mapRef.current.addListener("click", () => setHoveredId(null));
 				setMap(mapRef.current);
@@ -238,6 +244,17 @@ export default function MapView({
 	}, [events, draggable]);
 
 	useEffect(() => {
+		// "hybrid" is satellite imagery with the road and place labels on top
+		map?.setMapTypeId(satellite ? "hybrid" : "roadmap");
+	}, [map, satellite]);
+
+	function toggleSatellite() {
+		const next = !satellite;
+		setSatellite(next);
+		localStorage.setItem(SATELLITE_STORAGE_KEY, next ? "1" : "0");
+	}
+
+	useEffect(() => {
 		const previous = highlightedIdRef.current;
 		highlightedIdRef.current = highlightedId;
 		const google = (window as any).google;
@@ -265,7 +282,20 @@ export default function MapView({
 
 	return (
 		<>
-			<div ref={ref} className={`ml-auto ${fullScreen ? "w-full" : "w-3/4"} h-dvh`} />
+			<div className={`relative ml-auto ${fullScreen ? "w-full" : "w-3/4"} h-dvh`}>
+				<div ref={ref} className="w-full h-full" />
+				{map ? (
+					<button
+						className="absolute top-3 right-3 flex flex-row items-center gap-1.5 bg-panel border border-line rounded-lg text-panel-foreground text-sm shadow-md shadow-black/50 px-2.5 py-1.5 cursor-pointer hover:bg-panel-raised"
+						aria-pressed={satellite}
+						title={satellite ? "Switch to the map view" : "Switch to the satellite view"}
+						onClick={toggleSatellite}
+					>
+						<LayersIcon size={16} />
+						{satellite ? "Map" : "Satellite"}
+					</button>
+				) : null}
+			</div>
 			{map && highlightedEvent ? (
 				<MapAnchor
 					key={`highlight-${highlightedEvent.id}`}

@@ -93,3 +93,14 @@ export function StopIcon(props: IconProps) {
 export function ChevronIcon({ open = false, ...props }: IconProps & { open?: boolean }) {
 	return <Icon {...props}>{open ? <path d="m6 9 6 6 6-6" /> : <path d="m9 6 6 6-6 6" />}</Icon>;
 }
+
+/** Stacked map layers, for switching what the map is drawn with (e.g. satellite). */
+export function LayersIcon(props: IconProps) {
+	return (
+		<Icon {...props}>
+			<path d="m12 3 9 5-9 5-9-5 9-5Z" />
+			<path d="m3 12 9 5 9-5" />
+			<path d="m3 16 9 5 9-5" />
+		</Icon>
+	);
+}
