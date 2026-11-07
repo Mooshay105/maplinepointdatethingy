@@ -28,6 +28,7 @@ export default function EventEditor({
 	groups,
 	layers = [],
 	collapsible = false,
+	shownOnMap = event.visible,
 	className = "",
 }: {
 	event: MapEvent;
@@ -38,6 +39,8 @@ export default function EventEditor({
 	layers?: Layer[];
 	/** Adds a toggle that folds the event down to just its name and date (saved as event.collapsed). */
 	collapsible?: boolean;
+	/** Whether it's on the map, counting its group and layer too. Defaults to the event's own setting. */
+	shownOnMap?: boolean;
 	className?: string;
 }) {
 	// Text the user is typing that isn't a valid value yet, so the input doesn't snap back mid-edit
@@ -114,11 +117,11 @@ export default function EventEditor({
 				{/* The marker's colour, to match this card to its spot on the map */}
 				<span
 					aria-hidden="true"
-					// Hollow while the event is hidden from the map
-					className={`h-3 w-3 shrink-0 rounded-full border-2 ring-1 ring-panel-foreground/50 ${canCollapse ? "" : "ml-1"} ${event.visible ? "" : "opacity-60"}`}
+					// Hollow while the event is off the map
+					className={`h-3 w-3 shrink-0 rounded-full border-2 ring-1 ring-panel-foreground/50 ${canCollapse ? "" : "ml-1"}`}
 					style={{
 						borderColor: colorHex(event.iconColor),
-						background: event.visible ? colorHex(event.iconColor) : "transparent",
+						background: shownOnMap ? colorHex(event.iconColor) : "transparent",
 					}}
 				/>
 				<input

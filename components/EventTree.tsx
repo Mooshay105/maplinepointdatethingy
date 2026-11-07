@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import { Layer, MapEvent, MapGroup } from "@/utils/types";
-import { placementOf } from "@/utils/groups";
+import { isShownOnMap, placementOf } from "@/utils/groups";
 import EventEditor from "./EventEditor";
 import { ChevronIcon, EyeIcon, TrashIcon } from "./Icons";
 
@@ -48,6 +48,8 @@ export default function EventTree({
 					onDelete={onDeleteEvent}
 					groups={groups}
 					layers={layers}
+					// Hollow dot when a hidden group or layer keeps it off the map, too
+					shownOnMap={isShownOnMap(event, groups, layers)}
 					collapsible
 					className="my-2 rounded-lg border border-line bg-panel-sunken/40"
 				/>
@@ -128,7 +130,7 @@ function Folder({
 				/>
 				{onAddLayer ? (
 					<button
-						className="button h-7 border-line/60 px-2 text-sm pointer-coarse:h-10 text-muted hover:text-panel-foreground"
+						className="button h-7 px-2 text-sm pointer-coarse:h-10 text-muted hover:text-panel-foreground"
 						title="Add a layer to this group"
 						onClick={() => {
 							if (!open) onUpdate({ collapsed: false });

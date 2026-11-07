@@ -80,6 +80,7 @@ export default function Home() {
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [addFormOpen, setAddFormOpen] = useState(false);
 	const addNameRef = useRef<HTMLInputElement>(null);
+	const addOpenerRef = useRef<HTMLButtonElement>(null);
 	const openaiApiKey = useOpenaiApiKey();
 	const eventsRef = useRef(events);
 	const groupsRef = useRef(groups);
@@ -405,6 +406,8 @@ export default function Home() {
 		setDate("");
 		setAddress("");
 		formLookup.current = null;
+		// Ready for the next one
+		addNameRef.current?.focus();
 		setLat("");
 		setLng("");
 	}
@@ -853,7 +856,7 @@ export default function Home() {
 											<div className="flex flex-row mt-1">
 												<input
 													id="openai-api-key"
-													className="border border-current/30 rounded-md px-2 py-1 text-[13px] grow"
+													className="border border-current/50 rounded-md px-2 py-1 text-[13px] grow"
 													type={showApiKey ? "text" : "password"}
 													autoComplete="off"
 													spellCheck={false}
@@ -862,13 +865,13 @@ export default function Home() {
 													onChange={(e) => setOpenaiApiKey(e.target.value)}
 												/>
 												<button
-													className="border border-current/30 rounded-md ml-1 px-2 text-[13px]"
+													className="border border-current/50 rounded-md ml-1 px-2 text-[13px]"
 													onClick={() => setShowApiKey((v) => !v)}
 												>
 													{showApiKey ? "Hide" : "Show"}
 												</button>
 												<button
-													className="border border-current/30 rounded-md ml-1 px-2 text-[13px]"
+													className="border border-current/50 rounded-md ml-1 px-2 text-[13px]"
 													onClick={() => setOpenaiApiKey("")}
 												>
 													Clear
@@ -980,6 +983,7 @@ export default function Home() {
 						{loaded && !addFormOpen ? (
 							<div className="shrink-0 border-t border-line px-4 py-3">
 								<button
+									ref={addOpenerRef}
 									className="button-primary w-full"
 									onClick={() => setAddFormOpen(true)}
 								>
@@ -1007,6 +1011,8 @@ export default function Home() {
 										className="button h-7 border-transparent px-2 text-sm text-muted pointer-coarse:h-10 hover:text-panel-foreground"
 										onClick={() => {
 											setAddFormOpen(false);
+											// Back to the button that opened it, once it's drawn again
+											requestAnimationFrame(() => addOpenerRef.current?.focus());
 											setSubmitError(null);
 										}}
 									>
@@ -1037,20 +1043,34 @@ export default function Home() {
 										onBlur={lookUpFormAddress}
 										placeholder="Address, or fill in the coordinates"
 									/>
-									<input
-										className="field tabular-nums"
-										aria-label="Latitude"
-										value={lat}
-										onChange={(e) => setLat(e.target.value)}
-										placeholder="Latitude"
-									/>
-									<input
-										className="field tabular-nums"
-										aria-label="Longitude"
-										value={lng}
-										onChange={(e) => setLng(e.target.value)}
-										placeholder="Longitude"
-									/>
+									<div className="relative min-w-0">
+										<span
+											aria-hidden="true"
+											className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-xs text-muted"
+										>
+											Lat
+										</span>
+										<input
+											className="field w-full pl-9 tabular-nums"
+											aria-label="Latitude"
+											value={lat}
+											onChange={(e) => setLat(e.target.value)}
+										/>
+									</div>
+									<div className="relative min-w-0">
+										<span
+											aria-hidden="true"
+											className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-xs text-muted"
+										>
+											Lng
+										</span>
+										<input
+											className="field w-full pl-9 tabular-nums"
+											aria-label="Longitude"
+											value={lng}
+											onChange={(e) => setLng(e.target.value)}
+										/>
+									</div>
 									<select
 										className="field"
 										aria-label="Icon"
