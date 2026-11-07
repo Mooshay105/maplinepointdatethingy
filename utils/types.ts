@@ -129,6 +129,11 @@ export type MapEvent = {
 	groupId: number | null;
 	/** The layer the event sits in, or null when it sits directly in its group (or in no group). */
 	layerId: number | null;
+	/**
+	 * Notes on getting here from the previous event on the map, e.g. "~4h by train".
+	 * Shown on the line leading into this event.
+	 */
+	travelNote: string;
 };
 
 /** A folder of events and layers that can be hidden from the map all at once. */
@@ -148,7 +153,7 @@ export type Layer = {
 
 export type LegacyEvent = Omit<
 	MapEvent,
-	"date" | "description" | "address" | "visible" | "groupId" | "layerId"
+	"date" | "description" | "address" | "visible" | "groupId" | "layerId" | "travelNote"
 > & {
 	date: string;
 	description?: string;

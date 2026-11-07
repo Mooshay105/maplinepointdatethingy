@@ -20,3 +20,11 @@ export function parseNzDate(input: string): Date | null {
 export function formatNzDate(date: Date): string {
 	return date.toLocaleDateString("en-NZ");
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Whole calendar days from one date to another, ignoring the time of day and daylight saving. */
+export function daysBetween(from: Date, to: Date): number {
+	const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+	return Math.round((day(to) - day(from)) / DAY_MS);
+}

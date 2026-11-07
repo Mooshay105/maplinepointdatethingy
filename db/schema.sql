@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS events (
 	description TEXT NOT NULL DEFAULT '',
 	address TEXT NOT NULL DEFAULT '',  -- raw address as the user typed it
 	group_id INTEGER,                 -- map_groups.id, or NULL when ungrouped (also set for events in a layer)
-	layer_id INTEGER                  -- layers.id, or NULL when not in a layer
+	layer_id INTEGER,                 -- layers.id, or NULL when not in a layer
+	travel_note TEXT NOT NULL DEFAULT '' -- notes on getting here from the previous event, e.g. train time
 );
 
 -- Upgrades for databases created by older versions (the app also runs these automatically):
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS events (
 -- ALTER TABLE events ADD COLUMN address TEXT NOT NULL DEFAULT '';
 -- ALTER TABLE events ADD COLUMN group_id INTEGER;
 -- ALTER TABLE events ADD COLUMN layer_id INTEGER;
+-- ALTER TABLE events ADD COLUMN travel_note TEXT NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id);
 

@@ -33,7 +33,8 @@ async function createSchema() {
 			description TEXT NOT NULL DEFAULT '',
 			address TEXT NOT NULL DEFAULT '',
 			group_id INTEGER,
-			layer_id INTEGER
+			layer_id INTEGER,
+			travel_note TEXT NOT NULL DEFAULT ''
 		)`,
 	);
 	await db.execute("CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id)");
@@ -74,6 +75,9 @@ async function createSchema() {
 	if (!existingColumns.includes("layer_id")) {
 		await db.execute("ALTER TABLE events ADD COLUMN layer_id INTEGER");
 	}
+	if (!existingColumns.includes("travel_note")) {
+		await db.execute("ALTER TABLE events ADD COLUMN travel_note TEXT NOT NULL DEFAULT ''");
+	}
 	if (existingColumns.includes("visable")) {
 		await db.execute("ALTER TABLE events RENAME COLUMN visable TO visible");
 	}
@@ -101,6 +105,7 @@ export const eventSchema = z.object({
 	visible: z.boolean(),
 	groupId: idSchema.nullable(),
 	layerId: idSchema.nullable(),
+	travelNote: z.string(),
 });
 
 export const eventChangesSchema = eventSchema.omit({ id: true }).partial();
@@ -121,6 +126,7 @@ export function rowToEvent(row: Row): z.infer<typeof eventSchema> {
 		visible: Boolean(row.visible),
 		groupId: nullableId(row.group_id),
 		layerId: nullableId(row.layer_id),
+		travelNote: String(row.travel_note ?? ""),
 	};
 }
 
@@ -141,6 +147,7 @@ export const columns: Record<keyof EventChanges, string> = {
 	visible: "visible",
 	groupId: "group_id",
 	layerId: "layer_id",
+	travelNote: "travel_note",
 };
 
 export const groupSchema = z.object({

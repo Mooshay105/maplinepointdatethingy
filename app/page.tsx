@@ -29,7 +29,7 @@ import {
 	placementOf,
 	UNGROUPED,
 } from "@/utils/groups";
-import { formatNzDate, parseNzDate } from "@/utils/dates";
+import { daysBetween, formatNzDate, parseNzDate } from "@/utils/dates";
 import { getOpenaiApiKey, setOpenaiApiKey, useOpenaiApiKey } from "@/utils/openaiApiKey";
 import {
 	AddEventInput,
@@ -41,6 +41,7 @@ import {
 	EditEventInput,
 	EditGroupInput,
 	EditLayerInput,
+	SetTravelNoteInput,
 	SetVisibilityInput,
 } from "@/utils/chatTools";
 import { loadEvents } from "@/utils/migrate";
@@ -242,6 +243,7 @@ export default function Home() {
 		iconColor: EventColor;
 		description?: string;
 		address?: string;
+		travelNote?: string;
 		groupId?: number | null;
 		layerId?: number | null;
 	}): MapEvent | null {
@@ -256,10 +258,12 @@ export default function Home() {
 		}
 
 		const event: MapEvent = {
-			description: "",
-			address: "",
 			...UNGROUPED,
 			...fields,
+			// After the spread, as optional fields can be passed in as undefined, which the API rejects
+			description: fields.description ?? "",
+			address: fields.address ?? "",
+			travelNote: fields.travelNote ?? "",
 			id: newId(),
 			date: parsedDate,
 			visible: true,
@@ -338,6 +342,14 @@ export default function Home() {
 		setTimeout(() => setCopied(false), 2000);
 	}
 
+	/** Each stretch of the map's route line: every shown event to the next one, by date. */
+	function shownLegs() {
+		const shown = eventsRef.current.filter((event) =>
+			isShownOnMap(event, groupsRef.current, layersRef.current),
+		);
+		return shown.slice(1).map((to, i) => ({ from: shown[i], to }));
+	}
+
 	const { messages, sendMessage, status, stop, addToolOutput, error } = useChat({
 		transport: chatTransport,
 		sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
@@ -386,6 +398,7 @@ export default function Home() {
 					iconColor: input.iconColor ?? "grey",
 					description: input.description,
 					address: input.address,
+					travelNote: input.travelNote,
 					...placement,
 				});
 				respond(
@@ -403,6 +416,7 @@ export default function Home() {
 				if (input.name !== undefined) changes.name = input.name;
 				if (input.description !== undefined) changes.description = input.description;
 				if (input.address !== undefined) changes.address = input.address;
+				if (input.travelNote !== undefined) changes.travelNote = input.travelNote;
 				if (input.latitude !== undefined) changes.lat = input.latitude;
 				if (input.longitude !== undefined) changes.lng = input.longitude;
 				if (input.icon !== undefined) changes.icon = input.icon;
@@ -451,8 +465,35 @@ export default function Home() {
 					visible: event.visible,
 					groupId: event.groupId,
 					layerId: event.layerId,
+					travelNote: event.travelNote,
 				}));
 				respond(JSON.stringify(list));
+			} else if (toolCall.toolName === "listLegs") {
+				const list = shownLegs().map(({ from, to }) => ({
+					fromEventId: from.id,
+					fromName: from.name,
+					fromDate: formatNzDate(from.date),
+					toEventId: to.id,
+					toName: to.name,
+					toDate: formatNzDate(to.date),
+					days: daysBetween(from.date, to.date),
+					travelNote: to.travelNote,
+				}));
+				respond(JSON.stringify(list));
+			} else if (toolCall.toolName === "setTravelNote") {
+				const input = toolCall.input as SetTravelNoteInput;
+				const leg = shownLegs().find(
+					({ from, to }) => from.id === input.fromEventId && to.id === input.toEventId,
+				);
+				if (!leg) {
+					respond(
+						`Events ${input.fromEventId} and ${input.toEventId} aren't next to each other on the map. Use listLegs to find the stretches.`,
+					);
+					return;
+				}
+				// The notes for a stretch are stored on the event it leads to
+				updateEvent(leg.to.id, { travelNote: input.travelNote });
+				respond(`Set the travel notes from event ${leg.from.id} to event ${leg.to.id}`);
 			} else if (toolCall.toolName === "listGroups") {
 				const list = groupsRef.current.map((group) => ({
 					id: group.id,

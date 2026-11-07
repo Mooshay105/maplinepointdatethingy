@@ -15,6 +15,7 @@ import {
 	MapGroup,
 	readableOn,
 } from "@/utils/types";
+import { daysBetween } from "@/utils/dates";
 import EventEditor from "./EventEditor";
 
 // Maps JavaScript API keys are public by design (they end up in the browser); restrict them by
@@ -80,6 +81,28 @@ function markerIcon(google: any, url: string, highlighted: boolean) {
 		scaledSize: new google.maps.Size(size, size),
 		anchor: new google.maps.Point(size / 2, size / 2),
 	};
+}
+
+function formatDays(days: number): string {
+	if (days === 0) return "Same day";
+	return `${days} ${Math.abs(days) === 1 ? "day" : "days"}`;
+}
+
+/** The point halfway along the great circle between two points, where the geodesic line passes. */
+function midpoint(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+	const rad = Math.PI / 180;
+	const lat1 = a.lat * rad;
+	const lat2 = b.lat * rad;
+	const dLng = (b.lng - a.lng) * rad;
+	const bx = Math.cos(lat2) * Math.cos(dLng);
+	const by = Math.cos(lat2) * Math.sin(dLng);
+	const lat = Math.atan2(
+		Math.sin(lat1) + Math.sin(lat2),
+		Math.sqrt((Math.cos(lat1) + bx) ** 2 + by ** 2),
+	);
+	const lng = a.lng * rad + Math.atan2(by, Math.cos(lat1) + bx);
+	// Wrap back into -180..180
+	return { lat: lat / rad, lng: ((((lng / rad + 180) % 360) + 360) % 360) - 180 };
 }
 
 export default function MapView({
@@ -233,6 +256,9 @@ export default function MapView({
 
 	const highlightedEvent = events.find((event) => event.id === highlightedId);
 
+	// One label per stretch of the line, i.e. between each event and the next (events come sorted by date)
+	const legs = events.slice(1).map((to, i) => ({ from: events[i], to }));
+
 	const menuEvents = events.filter(
 		(event) => alwaysShowHoverMenus || event.id === hoveredId || event.id === focusedId,
 	);
@@ -252,6 +278,31 @@ export default function MapView({
 					<div className="absolute -left-5 -top-5 w-10 h-10 rounded-full border-2 border-white animate-ping pointer-events-none" />
 				</MapAnchor>
 			) : null}
+			{map
+				? legs.map(({ from, to }) => {
+						const { lat, lng } = midpoint(from, to);
+						return (
+							<MapAnchor
+								key={`leg-${from.id}-${to.id}`}
+								map={map}
+								lat={lat}
+								lng={lng}
+								raised={false}
+								// Below the hover menus, so a label never covers one
+								pane="overlayMouseTarget"
+							>
+								<LegLabel
+									days={daysBetween(from.date, to.date)}
+									note={to.travelNote}
+									title={`${from.name || "Untitled"} → ${to.name || "Untitled"}`}
+									onNoteChange={
+										onUpdate ? (travelNote) => onUpdate(to.id, { travelNote }) : undefined
+									}
+								/>
+							</MapAnchor>
+						);
+					})
+				: null}
 			{map
 				? menuEvents.map((event) => (
 						<MapAnchor
@@ -289,12 +340,76 @@ export default function MapView({
 	);
 }
 
+/**
+ * The days between two events, sitting on the line between them, with notes on the trip
+ * (e.g. the train time). Clicking it edits the notes, unless it's read-only.
+ */
+function LegLabel({
+	days,
+	note,
+	title,
+	onNoteChange,
+}: {
+	days: number;
+	note: string;
+	/** Which two events this is between, shown as a tooltip and above the notes box. */
+	title: string;
+	onNoteChange?: (note: string) => void;
+}) {
+	const [editing, setEditing] = useState(false);
+
+	return (
+		<div className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 cursor-auto">
+			{editing && onNoteChange ? (
+				<div
+					className="w-56 bg-panel border border-line rounded-xl text-panel-foreground text-sm shadow-lg shadow-black/50 p-2"
+					onBlur={(e) => {
+						if (!e.currentTarget.contains(e.relatedTarget)) setEditing(false);
+					}}
+				>
+					<div className="flex flex-row items-baseline justify-between gap-2 mb-1">
+						<span className="truncate text-muted text-xs">{title}</span>
+						<span className="shrink-0 font-semibold">{formatDays(days)}</span>
+					</div>
+					<textarea
+						className="block border border-line rounded-md px-2 w-full resize-y min-h-[2.5em]"
+						rows={2}
+						autoFocus
+						value={note}
+						onChange={(e) => onNoteChange(e.target.value)}
+						onKeyDown={(e) => {
+							// Shift+Enter still adds a new line
+							if (e.key === "Escape" || (e.key === "Enter" && !e.shiftKey)) {
+								e.preventDefault();
+								setEditing(false);
+							}
+						}}
+						placeholder="Travel notes, e.g. ~4h by train"
+					/>
+				</div>
+			) : (
+				<button
+					className={`block w-max max-w-48 bg-panel border border-line text-panel-foreground text-xs text-center shadow-md shadow-black/50 px-2 py-0.5 ${note ? "rounded-lg" : "rounded-full"} ${onNoteChange ? "cursor-pointer hover:bg-panel-raised" : "cursor-default"}`}
+					title={onNoteChange ? `${title}\nClick to edit travel notes` : title}
+					onClick={onNoteChange ? () => setEditing(true) : undefined}
+				>
+					<span className="block font-semibold whitespace-nowrap">{formatDays(days)}</span>
+					{note ? (
+						<span className="block text-muted whitespace-pre-line line-clamp-2">{note}</span>
+					) : null}
+				</button>
+			)}
+		</div>
+	);
+}
+
 /** Renders children on the map, with the container's origin pinned to a lat/lng. */
 function MapAnchor({
 	map,
 	lat,
 	lng,
 	raised,
+	pane = "floatPane",
 	children,
 }: {
 	map: any;
@@ -302,6 +417,8 @@ function MapAnchor({
 	lng: number;
 	/** Draws this one above the other menus, for when they're all shown at once. */
 	raised: boolean;
+	/** Which of the map's layers to draw in; floatPane is the top one. */
+	pane?: "floatPane" | "overlayMouseTarget";
 	children: ReactNode;
 }) {
 	const [container] = useState(() => {
@@ -323,7 +440,7 @@ function MapAnchor({
 			position: any = null;
 
 			onAdd() {
-				this.getPanes().floatPane.appendChild(container);
+				this.getPanes()[pane].appendChild(container);
 			}
 
 			draw() {
@@ -347,7 +464,7 @@ function MapAnchor({
 			overlay.setMap(null);
 			overlayRef.current = null;
 		};
-	}, [map, container]);
+	}, [map, container, pane]);
 
 	useEffect(() => {
 		const overlay = overlayRef.current;

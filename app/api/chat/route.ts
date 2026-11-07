@@ -22,6 +22,7 @@ import {
 	editEventInput,
 	editGroupInput,
 	editLayerInput,
+	setTravelNoteInput,
 	setVisibilityInput,
 } from "@/utils/chatTools";
 import { formatNzDate } from "@/utils/dates";
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
 
 	const result = streamText({
 		model: openai("gpt-6-luna"),
-		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${new Date().toLocaleString("en-NZ")}. Events can be put in groups, and groups can contain layers (a layer is a folder of events inside a group; layers can't contain other layers). Use listEvents to find event ids, and listGroups to find group and layer ids, before editing, deleting, hiding or showing. Use hideItems and showItems to hide or show many things at once. Use geoLookup to get coordinates for an address or place before adding or moving an event there. Do not use markdown in your responses.`,
+		instructions: `You manage a calendar of events shown on a map. Dates must be in DD/MM/YYYY format. Today is ${new Date().toLocaleString("en-NZ")}. Events can be put in groups, and groups can contain layers (a layer is a folder of events inside a group; layers can't contain other layers). Use listEvents to find event ids, and listGroups to find group and layer ids, before editing, deleting, hiding or showing. Use hideItems and showItems to hide or show many things at once. The map draws a line through the shown events in date order; use listLegs to see the days between each event and the next, and setTravelNote to note how to get from one to the next (e.g. the approximate train time). Use geoLookup to get coordinates for an address or place before adding or moving an event there. Do not use markdown in your responses.`,
 		tools: {
 			addEvent: tool({
 				description: "Add an event to the calendar",
@@ -65,6 +66,16 @@ export async function POST(req: Request) {
 			listEvents: tool({
 				description: "List all events in the calendar, including their ids",
 				inputSchema: z.object({}),
+			}),
+			listLegs: tool({
+				description:
+					"List each stretch of the route line on the map: every shown event (by date) to the next one, with the days between them and their travel notes. Use this to judge whether getting from one event to the next is possible in time.",
+				inputSchema: z.object({}),
+			}),
+			setTravelNote: tool({
+				description:
+					"Set the travel notes (e.g. the approximate train time) for one stretch of the route line. The two events must be next to each other on the map; use listLegs to find them.",
+				inputSchema: setTravelNoteInput,
 			}),
 			listGroups: tool({
 				description: "List all groups and the layers inside them, including their ids",

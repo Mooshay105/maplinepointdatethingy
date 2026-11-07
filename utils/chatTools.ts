@@ -26,6 +26,12 @@ export const addEventInput = z.object({
 		.describe(
 			"The id of the layer this event belongs to. Its group is used automatically.",
 		),
+	travelNote: z
+		.string()
+		.optional()
+		.describe(
+			"Notes on getting to this event from the previous one on the map (by date), e.g. the approximate train time",
+		),
 });
 
 export const editEventInput = z.object({
@@ -44,6 +50,22 @@ export const editEventInput = z.object({
 		.optional()
 		.describe(
 			"The id of the layer this event belongs to. Its group is used automatically.",
+		),
+	travelNote: z
+		.string()
+		.optional()
+		.describe(
+			"Notes on getting to this event from the previous one on the map (by date), e.g. the approximate train time",
+		),
+});
+
+export const setTravelNoteInput = z.object({
+	fromEventId: z.number().describe("The id of the event the stretch starts at"),
+	toEventId: z.number().describe("The id of the event the stretch ends at"),
+	travelNote: z
+		.string()
+		.describe(
+			"Notes on travelling between the two, e.g. the approximate train time. An empty string clears it.",
 		),
 });
 
@@ -105,8 +127,9 @@ export const setVisibilityInput = z.object({
 		.describe("Set to true to apply this to every event, instead of listing their ids"),
 });
 
-export type AddEventInput =z.infer<typeof addEventInput>;
+export type AddEventInput = z.infer<typeof addEventInput>;
 export type EditEventInput = z.infer<typeof editEventInput>;
+export type SetTravelNoteInput = z.infer<typeof setTravelNoteInput>;
 export type DeleteEventInput = z.infer<typeof deleteEventInput>;
 export type AddGroupInput = z.infer<typeof addGroupInput>;
 export type EditGroupInput = z.infer<typeof editGroupInput>;
