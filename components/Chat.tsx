@@ -3,7 +3,7 @@
 import { UseChatHelpers } from "@ai-sdk/react";
 import { useUser } from "@clerk/nextjs";
 import { getToolName, isToolUIPart, UIMessage } from "ai";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUpIcon, StopIcon } from "./Icons";
 
 interface ChatProps {
@@ -25,6 +25,12 @@ export default function Chat({
 }: ChatProps) {
 	const [input, setInput] = useState("");
 	const { isSignedIn } = useUser();
+	const endRef = useRef<HTMLDivElement>(null);
+
+	// Keep the newest message in view as replies stream in
+	useEffect(() => {
+		endRef.current?.scrollIntoView({ block: "end" });
+	}, [messages]);
 
 	if (!isSignedIn)
 		return <p className="px-4 py-6 text-muted">Sign in to plan your events with the chat.</p>;
@@ -46,7 +52,7 @@ export default function Chat({
 
 	return (
 		<>
-			<div className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-live="polite">
+			<div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
 				{messages.length === 0 ? (
 					<p className="px-1 py-3 text-muted">
 						Ask for changes in plain words, like &ldquo;add the Zurich Diamond League on
@@ -88,13 +94,17 @@ export default function Chat({
 						The chat stopped with an error: {error.message}
 					</p>
 				) : null}
+				<p className="sr-only" aria-live="polite">
+					{status === "submitted" || status === "streaming" ? "Replying" : ""}
+				</p>
+				<div ref={endRef} />
 			</div>
 			<form
 				className="flex shrink-0 gap-2 border-t border-line bg-panel-sunken/60 p-3"
 				onSubmit={(e) => {
 					e.preventDefault();
-					if (isLoading) stop();
-					else send();
+					// Enter while a reply streams does nothing; only the stop button stops it
+					if (!isLoading) send();
 				}}
 			>
 				<input
@@ -103,16 +113,13 @@ export default function Chat({
 					value={input}
 					placeholder="Ask for a change"
 					onChange={(e) => setInput(e.currentTarget.value)}
-					onKeyDown={(e) => {
-						// Holding Enter would otherwise send, then stop the reply it just started
-						if (e.key === "Enter" && e.repeat) e.preventDefault();
-					}}
 				/>
 				<button
-					type="submit"
+					type={isLoading ? "button" : "submit"}
 					className="button-primary w-9 px-0"
 					aria-label={isLoading ? "Stop" : "Send"}
 					title={isLoading ? "Stop" : "Send"}
+					onClick={isLoading ? () => stop() : undefined}
 				>
 					{isLoading ? <StopIcon size={18} /> : <ArrowUpIcon size={18} />}
 				</button>

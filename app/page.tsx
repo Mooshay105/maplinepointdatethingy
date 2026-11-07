@@ -79,6 +79,7 @@ export default function Home() {
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [addFormOpen, setAddFormOpen] = useState(false);
+	const addNameRef = useRef<HTMLInputElement>(null);
 	const openaiApiKey = useOpenaiApiKey();
 	const eventsRef = useRef(events);
 	const groupsRef = useRef(groups);
@@ -120,6 +121,11 @@ export default function Home() {
 			window.removeEventListener("pagehide", flushAllUpdates);
 		};
 	}, []);
+
+	useEffect(() => {
+		// Ready to type on opening, but not on phones, where it would throw the keyboard over the form
+		if (addFormOpen && window.matchMedia("(min-width: 768px)").matches) addNameRef.current?.focus();
+	}, [addFormOpen]);
 
 	useEffect(() => {
 		if (!isSignedIn) return;
@@ -776,9 +782,20 @@ export default function Home() {
 	] as const;
 
 	return (
-		// Side by side on wide screens; on phones the map sits on top and the sidebar below it
-		<main className="flex h-dvh flex-col-reverse overflow-hidden md:flex-row">
-			<aside className="flex min-h-0 flex-1 flex-col border-t border-line bg-panel text-panel-foreground md:w-[clamp(380px,30vw,460px)] md:flex-none md:border-t-0 md:border-r">
+		// Side by side on wide screens, sidebar first; on phones the map sits on top and the sidebar below.
+		// The map comes first in the page too, so keyboard and screen reader order match what's on screen.
+		<main className="flex h-dvh flex-col overflow-hidden md:flex-row">
+			<MapView
+				events={visibleEvents}
+				alwaysShowHoverMenus={settings.alwaysShowHoverMenus}
+				showDates={settings.showDatesOnMap}
+				onUpdate={updateEvent}
+				onDelete={deleteEvent}
+				groups={groups}
+				layers={layers}
+				highlightedId={hoveredEventId}
+			/>
+			<aside className="flex min-h-0 flex-1 flex-col border-t border-line bg-panel text-panel-foreground md:order-first md:w-[clamp(380px,30vw,460px)] md:flex-none md:border-t-0 md:border-r">
 				<header className="px-4 pt-3">
 					<div className="flex items-center justify-between gap-3">
 						<h1 className="font-display text-xl leading-tight font-semibold">
@@ -882,7 +899,7 @@ export default function Home() {
 								role="tab"
 								aria-selected={selectedTab === tab.id}
 								aria-controls={`panel-${tab.id}`}
-								className={`-mb-px border-b-2 pb-1.5 font-display text-lg font-semibold ${selectedTab === tab.id ? "border-accent text-panel-foreground" : "border-transparent text-muted hover:text-panel-foreground"}`}
+								className={`-mb-px border-b-2 pt-1 pb-2 font-display text-lg font-semibold ${selectedTab === tab.id ? "border-accent text-panel-foreground" : "border-transparent text-muted hover:text-panel-foreground"}`}
 								onClick={() => setSelectedTab(tab.id)}
 							>
 								{tab.label}
@@ -893,7 +910,7 @@ export default function Home() {
 				{/* Lane lines, the panel's one ornament, closing off the header */}
 				<div
 					aria-hidden="true"
-					className="h-[9px] shrink-0 border-t border-panel-foreground/70 bg-[linear-gradient(to_bottom,transparent_3px,rgb(238_242_252/0.35)_3px,rgb(238_242_252/0.35)_4px,transparent_4px)]"
+					className="h-[10px] shrink-0 border-t-2 border-panel-foreground/75 bg-[linear-gradient(to_bottom,transparent_4px,rgb(238_242_252/0.5)_4px,rgb(238_242_252/0.5)_6px,transparent_6px)]"
 				/>
 				{selectedTab === "events" ? (
 					<div
@@ -965,7 +982,8 @@ export default function Home() {
 						{loaded && addFormOpen ? (
 							<form
 								id="add-event-form"
-								className="shrink-0 border-t border-line bg-panel-sunken/60 px-4 pt-3 pb-4"
+								// Scrolls on its own when there isn't room, e.g. on a phone with the keyboard open
+								className="max-h-[65%] shrink-0 overflow-y-auto border-t border-line bg-panel-sunken/60 px-4 pt-3 pb-4"
 								aria-labelledby="add-event-heading"
 								onSubmit={handleAddEventSubmit}
 							>
@@ -993,7 +1011,7 @@ export default function Home() {
 									<input
 										className="field"
 										aria-label="Name"
-										autoFocus
+										ref={addNameRef}
 										value={name}
 										onChange={(e) => setName(e.target.value)}
 										placeholder="Name"
@@ -1085,16 +1103,7 @@ export default function Home() {
 					</div>
 				)}
 			</aside>
-			<MapView
-				events={visibleEvents}
-				alwaysShowHoverMenus={settings.alwaysShowHoverMenus}
-				showDates={settings.showDatesOnMap}
-				onUpdate={updateEvent}
-				onDelete={deleteEvent}
-				groups={groups}
-				layers={layers}
-				highlightedId={hoveredEventId}
-			/>
+
 		</main>
 	);
 }

@@ -118,6 +118,7 @@ export default function EventEditor({
 					value={event.name}
 					readOnly={readOnly}
 					onChange={(e) => update({ name: e.target.value })}
+					title={event.name}
 					placeholder="Untitled event"
 				/>
 				<input
@@ -139,7 +140,7 @@ export default function EventEditor({
 				/>
 			</div>
 			{collapsed ? null : (
-				<div className="grid grid-cols-2 gap-2 px-3 pb-3">
+				<div className="grid grid-cols-2 gap-1.5 px-3 pb-2.5 text-sm">
 					{readOnly && !event.address ? null : (
 						<input
 							className={`field col-span-2 ${lookupFailed ? "border-danger" : ""}`}
@@ -200,7 +201,7 @@ export default function EventEditor({
 						))}
 					</select>
 					<ColorSelect
-						className="flex min-w-0 gap-2"
+						className="flex min-w-0 gap-1.5"
 						selectClassName="field flex-1"
 						value={event.iconColor}
 						disabled={readOnly}
@@ -218,9 +219,9 @@ export default function EventEditor({
 					) : null}
 					{readOnly && !event.description ? null : (
 						<textarea
-							className="field col-span-2 min-h-[2.5em] resize-y"
+							className="field col-span-2 min-h-8 resize-y"
 							aria-label="Description"
-							rows={2}
+							rows={1}
 							value={event.description}
 							readOnly={readOnly}
 							onChange={(e) => update({ description: e.target.value })}
@@ -244,7 +245,8 @@ export default function EventEditor({
 							{lockButton}
 							{onDelete ? (
 								<button
-									className="icon-button hover:text-danger"
+									// Set apart from the lock, so a slip doesn't delete
+									className="icon-button ml-2 hover:text-danger"
 									title={event.locked ? "Unlock to delete" : "Delete"}
 									aria-label="Delete event"
 									disabled={event.locked}

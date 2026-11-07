@@ -145,6 +145,8 @@ export default function MapView({
 	// Keeps a menu open while one of its inputs has focus, even if the mouse wanders off
 	const [focusedId, setFocusedId] = useState<number | null>(null);
 	const [satellite, setSatellite] = useState(false);
+	// The stretch whose travel notes are open, drawn above the other labels so none of them covers it
+	const [editingLeg, setEditingLeg] = useState<string | null>(null);
 	// The markers are rebuilt whenever events change, so read the latest handler through a ref
 	// instead of rebuilding them when only onUpdate changes
 	const onUpdateRef = useRef(onUpdate);
@@ -317,13 +319,14 @@ export default function MapView({
 			{map
 				? legs.map(({ from, to }) => {
 						const { lat, lng } = midpoint(from, to);
+						const legKey = `leg-${from.id}-${to.id}`;
 						return (
 							<MapAnchor
-								key={`leg-${from.id}-${to.id}`}
+								key={legKey}
 								map={map}
 								lat={lat}
 								lng={lng}
-								raised={false}
+								raised={editingLeg === legKey}
 								// Below the hover menus, so a label never covers one
 								pane="overlayMouseTarget"
 							>
@@ -331,6 +334,12 @@ export default function MapView({
 									days={daysBetween(from.date, to.date)}
 									note={to.travelNote}
 									title={`${from.name || "Untitled"} → ${to.name || "Untitled"}`}
+									editing={editingLeg === legKey}
+									onEditingChange={(editing) =>
+										setEditingLeg((current) =>
+											editing ? legKey : current === legKey ? null : current,
+										)
+									}
 									// The notes are stored on the event the stretch leads to, so they lock with it
 									onNoteChange={
 										onUpdate && !to.locked
@@ -407,15 +416,19 @@ function LegLabel({
 	days,
 	note,
 	title,
+	editing,
+	onEditingChange: setEditing,
 	onNoteChange,
 }: {
 	days: number;
 	note: string;
 	/** Which two events this is between, shown as a tooltip and above the notes box. */
 	title: string;
+	/** Whether the notes box is open. Kept by MapView, so it can draw the open one on top. */
+	editing: boolean;
+	onEditingChange: (editing: boolean) => void;
 	onNoteChange?: (note: string) => void;
 }) {
-	const [editing, setEditing] = useState(false);
 
 	return (
 		<div className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 cursor-auto">
@@ -427,7 +440,7 @@ function LegLabel({
 					}}
 				>
 					<div className="flex flex-row items-baseline justify-between gap-2 mb-1">
-						<span className="truncate text-muted text-xs">{title}</span>
+						<span className="line-clamp-2 text-muted text-xs">{title}</span>
 						<span className="shrink-0 font-semibold">{formatDays(days)}</span>
 					</div>
 					<textarea

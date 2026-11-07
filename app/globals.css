@@ -34,6 +34,9 @@
 body {
 	background: var(--color-panel);
 	color: var(--color-panel-foreground);
+	/* Dark scrollbars, dropdown menus and pickers to match the panels */
+	color-scheme: dark;
+	scrollbar-color: var(--color-line) transparent;
 }
 
 /*
@@ -53,6 +56,10 @@ body {
 	}
 	select.field {
 		@apply pr-1;
+	}
+	/* A locked or read-only event's dropdowns read as plain text, like its read-only inputs */
+	select.field:disabled {
+		@apply appearance-none border-transparent bg-transparent opacity-100;
 	}
 
 	/* A square button holding one icon */

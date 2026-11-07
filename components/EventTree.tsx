@@ -120,7 +120,7 @@ function Folder({
 					<ChevronIcon open={open} size={18} />
 				</button>
 				<input
-					className={`field flex-1 border-transparent bg-transparent px-1.5 font-display font-semibold hover:border-line ${kind === "group" ? "text-lg" : "text-base"}`}
+					className={`field flex-1 border-transparent border-b-line/60 bg-transparent px-1.5 font-display font-semibold hover:border-line ${kind === "group" ? "text-lg" : "text-base"}`}
 					aria-label={kind === "group" ? "Group name" : "Layer name"}
 					value={folder.name}
 					onChange={(e) => onUpdate({ name: e.target.value })}
@@ -128,7 +128,7 @@ function Folder({
 				/>
 				{onAddLayer ? (
 					<button
-						className="button h-7 border-transparent px-2 text-sm text-muted hover:text-panel-foreground"
+						className="button h-7 border-line/60 px-2 text-sm text-muted hover:text-panel-foreground"
 						title="Add a layer to this group"
 						onClick={() => {
 							if (!open) onUpdate({ collapsed: false });
@@ -147,7 +147,7 @@ function Folder({
 					<EyeIcon crossed={!folder.visible} size={18} />
 				</button>
 				<button
-					className="icon-button hover:text-danger"
+					className="icon-button ml-1 hover:text-danger"
 					title={`Delete ${kind} (its events are kept)`}
 					aria-label={`Delete ${kind}`}
 					onClick={onDelete}
@@ -159,7 +159,7 @@ function Folder({
 				// Dimmed while hidden, since nothing in here is on the map. The rule down the left
 				// shows what's inside: solid for a group, dashed for a layer.
 				<div
-					className={`ml-3 border-l-2 pl-1.5 ${kind === "layer" ? "border-dashed border-line" : "border-line"} ${folder.visible ? "" : "opacity-50"}`}
+					className={`ml-2.5 border-l-2 pl-1 ${kind === "layer" ? "border-dashed border-line" : "border-line"} ${folder.visible ? "" : "opacity-50"}`}
 				>
 					{isEmpty ? (
 						<p className="py-2 pl-1 text-sm text-muted">
