@@ -49,7 +49,7 @@ export default function EventTree({
 					groups={groups}
 					layers={layers}
 					collapsible
-					className="border border-line rounded-xl m-2"
+					className="my-2 rounded-lg border border-line bg-panel-sunken/40"
 				/>
 			</div>
 		));
@@ -109,65 +109,67 @@ function Folder({
 	const isEmpty = Array.isArray(children) ? children.flat().length === 0 : !children;
 
 	return (
-		<div className={`border border-line rounded-xl m-2 ${kind === "layer" ? "border-dashed" : ""}`}>
-			<div className="flex flex-row items-center">
+		<section className="my-2" aria-label={folder.name || (kind === "group" ? "Untitled group" : "Untitled layer")}>
+			<div className="flex items-center gap-1 rounded-md py-0.5 pr-0.5">
 				<button
-					className="mt-2 ml-1 px-1"
+					className="icon-button w-6"
 					aria-label={open ? `Collapse ${kind}` : `Expand ${kind}`}
 					aria-expanded={open}
 					onClick={() => onUpdate({ collapsed: open })}
 				>
-					<ChevronIcon open={open} size={20} />
+					<ChevronIcon open={open} size={18} />
 				</button>
 				<input
-					className="border border-line rounded-md mt-2 mr-1 px-2 grow min-w-0 font-semibold"
+					className={`field flex-1 border-transparent bg-transparent px-1.5 font-display font-semibold hover:border-line ${kind === "group" ? "text-lg" : "text-base"}`}
+					aria-label={kind === "group" ? "Group name" : "Layer name"}
 					value={folder.name}
 					onChange={(e) => onUpdate({ name: e.target.value })}
-					placeholder={kind === "group" ? "Group name" : "Layer name"}
+					placeholder={kind === "group" ? "Untitled group" : "Untitled layer"}
 				/>
 				{onAddLayer ? (
 					<button
-						className="border border-line rounded-md mt-2 mr-1 px-1 whitespace-nowrap"
+						className="button h-7 border-transparent px-2 text-sm text-muted hover:text-panel-foreground"
 						title="Add a layer to this group"
 						onClick={() => {
 							if (!open) onUpdate({ collapsed: false });
 							onAddLayer();
 						}}
 					>
-						+ Layer
+						New layer
 					</button>
 				) : null}
 				<button
-					className="border border-line rounded-md mt-2 mr-1 px-1"
+					className="icon-button"
 					title={folder.visible ? "Hide" : "Show"}
 					aria-label={folder.visible ? `Hide ${kind}` : `Show ${kind}`}
 					onClick={() => onUpdate({ visible: !folder.visible })}
 				>
-					<EyeIcon crossed={!folder.visible} />
+					<EyeIcon crossed={!folder.visible} size={18} />
 				</button>
 				<button
-					className="border border-line rounded-md mt-2 mr-2 px-1"
+					className="icon-button hover:text-danger"
 					title={`Delete ${kind} (its events are kept)`}
 					aria-label={`Delete ${kind}`}
 					onClick={onDelete}
 				>
-					<TrashIcon />
+					<TrashIcon size={18} />
 				</button>
 			</div>
 			{open ? (
-				// Dimmed while hidden, since nothing in here is on the map
-				<div className={`pl-2 ${folder.visible ? "" : "opacity-50"}`}>
+				// Dimmed while hidden, since nothing in here is on the map. The rule down the left
+				// shows what's inside: solid for a group, dashed for a layer.
+				<div
+					className={`ml-3 border-l-2 pl-1.5 ${kind === "layer" ? "border-dashed border-line" : "border-line"} ${folder.visible ? "" : "opacity-50"}`}
+				>
 					{isEmpty ? (
-						<div className="text-sm text-center opacity-70 my-2">
-							Empty. Pick this {kind} on an event to move it here.
-						</div>
+						<p className="py-2 pl-1 text-sm text-muted">
+							Nothing here yet. Choose this {kind} on an event to move it in.
+						</p>
 					) : (
 						children
 					)}
 				</div>
-			) : (
-				<div className="mb-2" />
-			)}
-		</div>
+			) : null}
+		</section>
 	);
 }

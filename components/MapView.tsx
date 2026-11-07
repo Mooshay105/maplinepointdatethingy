@@ -285,11 +285,14 @@ export default function MapView({
 
 	return (
 		<>
-			<div className={`relative ml-auto ${fullScreen ? "w-full" : "w-3/4"} h-dvh`}>
+			{/* Beside the sidebar on wide screens, above it on phones (see app/page.tsx) */}
+			<div
+				className={`relative ${fullScreen ? "h-dvh w-full" : "h-[45dvh] shrink-0 md:h-full md:min-w-0 md:flex-1"}`}
+			>
 				<div ref={ref} className="w-full h-full" />
 				{map ? (
 					<button
-						className="absolute bottom-8 right-3 flex flex-row items-center gap-1.5 bg-panel border border-line rounded-lg text-panel-foreground text-sm shadow-md shadow-black/50 px-2.5 py-1.5 cursor-pointer hover:bg-panel-raised"
+						className="absolute right-3 bottom-8 flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm font-medium text-panel-foreground shadow-md shadow-black/40 hover:bg-panel-raised"
 						aria-pressed={satellite}
 						title={satellite ? "Switch to the map view" : "Switch to the satellite view"}
 						onClick={toggleSatellite}
@@ -308,7 +311,7 @@ export default function MapView({
 					raised={false}
 				>
 					{/* A pulsing ring around the marker so it's easy to spot */}
-					<div className="absolute -left-5 -top-5 w-10 h-10 rounded-full border-2 border-white animate-ping pointer-events-none" />
+					<div className="absolute -left-5 -top-5 w-10 h-10 rounded-full border-2 border-white animate-ping pointer-events-none motion-reduce:animate-none" />
 				</MapAnchor>
 			) : null}
 			{map
@@ -352,7 +355,7 @@ export default function MapView({
 						>
 							{/* Just under the marker, which is centred on the point (and bigger while highlighted) */}
 							<div
-								className={`absolute left-0 -translate-x-1/2 w-max bg-panel border border-line rounded-full text-panel-foreground text-[11px] font-medium shadow-md shadow-black/50 px-1.5 leading-4 pointer-events-none ${event.id === highlightedId ? "top-4.5" : "top-3"}`}
+								className={`absolute left-0 -translate-x-1/2 w-max bg-panel border border-line rounded-full text-panel-foreground text-[11px] font-medium tabular-nums shadow-md shadow-black/40 px-1.5 leading-4 pointer-events-none ${event.id === highlightedId ? "top-4.5" : "top-3"}`}
 							>
 								{formatNzDate(event.date)}
 							</div>
@@ -385,7 +388,7 @@ export default function MapView({
 									onDelete={onDelete}
 									groups={groups}
 									layers={layers}
-									className="w-72 bg-panel border border-line rounded-xl text-panel-foreground text-sm shadow-lg shadow-black/50"
+									className="w-80 rounded-lg border border-line bg-panel text-sm text-panel-foreground shadow-lg shadow-black/40"
 								/>
 								<div className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1.5 w-3 h-3 rotate-45 bg-panel border-r border-b border-line" />
 							</div>
@@ -418,7 +421,7 @@ function LegLabel({
 		<div className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 cursor-auto">
 			{editing && onNoteChange ? (
 				<div
-					className="w-56 bg-panel border border-line rounded-xl text-panel-foreground text-sm shadow-lg shadow-black/50 p-2"
+					className="w-60 rounded-lg border border-line bg-panel p-2.5 text-sm text-panel-foreground shadow-lg shadow-black/40"
 					onBlur={(e) => {
 						if (!e.currentTarget.contains(e.relatedTarget)) setEditing(false);
 					}}
@@ -428,7 +431,7 @@ function LegLabel({
 						<span className="shrink-0 font-semibold">{formatDays(days)}</span>
 					</div>
 					<textarea
-						className="block border border-line rounded-md px-2 w-full resize-y min-h-[2.5em]"
+						className="field block h-auto w-full min-h-[2.5em] resize-y py-1"
 						rows={2}
 						autoFocus
 						value={note}
@@ -445,7 +448,7 @@ function LegLabel({
 				</div>
 			) : (
 				<button
-					className={`block w-max max-w-48 bg-panel border border-line text-panel-foreground text-xs text-center shadow-md shadow-black/50 px-2 py-0.5 ${note ? "rounded-lg" : "rounded-full"} ${onNoteChange ? "cursor-pointer hover:bg-panel-raised" : "cursor-default"}`}
+					className={`block w-max max-w-48 bg-panel border border-line text-panel-foreground text-xs text-center shadow-md shadow-black/40 px-2 py-0.5 ${note ? "rounded-lg" : "rounded-full"} ${onNoteChange ? "cursor-pointer hover:bg-panel-raised" : "cursor-default"}`}
 					title={onNoteChange ? `${title}\nClick to edit travel notes` : title}
 					onClick={onNoteChange ? () => setEditing(true) : undefined}
 				>
@@ -480,6 +483,8 @@ function MapAnchor({
 	const [container] = useState(() => {
 		const div = document.createElement("div");
 		div.style.position = "absolute";
+		// Google Maps sets its own font on everything inside the map, so put the site's back
+		div.className = "font-sans";
 		// The map has keyboard shortcuts (arrows, +/-) that would otherwise fire while typing in the menu
 		for (const type of ["keydown", "keyup", "keypress"]) {
 			div.addEventListener(type, (e) => e.stopPropagation());

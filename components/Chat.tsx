@@ -26,12 +26,14 @@ export default function Chat({
 	const [input, setInput] = useState("");
 	const { isSignedIn } = useUser();
 
-	if (!isSignedIn) return <div className="text-center">Sign in to use the chat.</div>;
+	if (!isSignedIn)
+		return <p className="px-4 py-6 text-muted">Sign in to plan your events with the chat.</p>;
 	if (!hasApiKey)
 		return (
-			<div className="text-center">
-				Add your OpenAI API key in Settings (profile menu, top right) to use the chat.
-			</div>
+			<p className="px-4 py-6 text-muted">
+				The chat needs your OpenAI API key. Add it under Settings, in the profile menu at the
+				top of this panel.
+			</p>
 		);
 
 	const isLoading = status === "submitted" || status === "streaming";
@@ -43,53 +45,78 @@ export default function Chat({
 	}
 
 	return (
-		<div className="flex flex-col w-full max-w-md mx-auto mt-8 mb-20">
-			{messages.map((message) => (
-				<div
-					key={message.id}
-					className={`whitespace-pre-wrap ${message.role === "user" ? "bg-panel-raised" : "bg-panel"} rounded-md px-2 max-w-full overflow-y-auto`}
-				>
-					{message.parts.map((part, i) => {
-						if (part.type === "text") {
-							return <div key={`${message.id}-${i}`}>{part.text}</div>;
-						}
-						if (isToolUIPart(part)) {
-							const output =
-								typeof part.output === "string"
-									? part.output
-									: JSON.stringify(part.output);
-							return (
-								<div key={`${message.id}-${i}`} className="text-xs text-muted">
-									{getToolName(part)}:{" "}
-									{part.state === "output-available" ? output : part.state}
-								</div>
-							);
-						}
-						return null;
-					})}
+		<>
+			<div className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-live="polite">
+				{messages.length === 0 ? (
+					<p className="px-1 py-3 text-muted">
+						Ask for changes in plain words, like &ldquo;add the Zurich Diamond League on
+						28/08/2026&rdquo; or &ldquo;hide every cross country event&rdquo;.
+					</p>
+				) : null}
+				<div className="flex flex-col gap-2">
+					{messages.map((message) => (
+						<div
+							key={message.id}
+							className={`max-w-full overflow-x-auto whitespace-pre-wrap ${message.role === "user" ? "ml-8 self-end rounded-lg bg-panel-raised px-3 py-2" : "px-1"}`}
+						>
+							{message.parts.map((part, i) => {
+								if (part.type === "text") {
+									return <div key={`${message.id}-${i}`}>{part.text}</div>;
+								}
+								if (isToolUIPart(part)) {
+									const output =
+										typeof part.output === "string"
+											? part.output
+											: JSON.stringify(part.output);
+									return (
+										<div
+											key={`${message.id}-${i}`}
+											className="my-1 border-l-2 border-line pl-2 text-xs text-muted"
+										>
+											<span className="font-medium">{getToolName(part)}</span>:{" "}
+											{part.state === "output-available" ? output : part.state}
+										</div>
+									);
+								}
+								return null;
+							})}
+						</div>
+					))}
 				</div>
-			))}
-
-			{error && <div className="text-xs text-danger px-2">Error: {error.message}</div>}
-
-			<input
-				className="fixed bg-panel bottom-0 w-[calc(22vw-50px)] p-2 m-2 mb-8 border border-line rounded shadow-xl"
-				value={input}
-				placeholder="Ask something..."
-				onChange={(e) => setInput(e.currentTarget.value)}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" && !e.repeat) send();
+				{error ? (
+					<p role="alert" className="mt-2 text-sm text-danger">
+						The chat stopped with an error: {error.message}
+					</p>
+				) : null}
+			</div>
+			<form
+				className="flex shrink-0 gap-2 border-t border-line bg-panel-sunken/60 p-3"
+				onSubmit={(e) => {
+					e.preventDefault();
+					if (isLoading) stop();
+					else send();
 				}}
-			/>
-
-			<button
-				type="button"
-				className="fixed bg-panel bottom-0 ml-[19vw] p-1.75 m-2 mb-8 border border-line rounded shadow-xl"
-				aria-label={isLoading ? "Stop" : "Send"}
-				onClick={() => (isLoading ? stop() : send())}
 			>
-				{isLoading ? <StopIcon /> : <ArrowUpIcon />}
-			</button>
-		</div>
+				<input
+					className="field h-9 flex-1"
+					aria-label="Message"
+					value={input}
+					placeholder="Ask for a change"
+					onChange={(e) => setInput(e.currentTarget.value)}
+					onKeyDown={(e) => {
+						// Holding Enter would otherwise send, then stop the reply it just started
+						if (e.key === "Enter" && e.repeat) e.preventDefault();
+					}}
+				/>
+				<button
+					type="submit"
+					className="button-primary w-9 px-0"
+					aria-label={isLoading ? "Stop" : "Send"}
+					title={isLoading ? "Stop" : "Send"}
+				>
+					{isLoading ? <StopIcon size={18} /> : <ArrowUpIcon size={18} />}
+				</button>
+			</form>
+		</>
 	);
 }

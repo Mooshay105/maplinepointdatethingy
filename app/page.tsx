@@ -78,6 +78,7 @@ export default function Home() {
 	const [copied, setCopied] = useState(false);
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
+	const [addFormOpen, setAddFormOpen] = useState(false);
 	const openaiApiKey = useOpenaiApiKey();
 	const eventsRef = useRef(events);
 	const groupsRef = useRef(groups);
@@ -768,99 +769,322 @@ export default function Home() {
 		},
 	});
 
+
+	const tabs = [
+		{ id: "events", label: "Events" },
+		{ id: "chat", label: "Chat" },
+	] as const;
+
 	return (
-		<main>
-			<div className="fixed top-0 right-0 flex flex-row justify-center items-center align-middle bg-panel border-l border-b border-line rounded-bl-2xl text-panel-foreground p-2 overflow-y-auto z-100">
-				<Show when="signed-out">
-					<SignInButton>
-						<button aria-label="Sign in">
-							<UserIcon />
-						</button>
-					</SignInButton>
-				</Show>
-				<Show when="signed-in">
-					<div className="flex flex-row gap-2 justify-center items-center">
-						<button
-							className="border border-line rounded-md px-2"
-							onClick={copyShareLink}
-						>
-							{copied ? "Copied!" : "Share"}
-						</button>
-						<UserButton>
-							<UserButton.UserProfilePage
-								label="Settings"
-								labelIcon={<SettingsIcon size={16} />}
-								url="settings"
+		// Side by side on wide screens; on phones the map sits on top and the sidebar below it
+		<main className="flex h-dvh flex-col-reverse overflow-hidden md:flex-row">
+			<aside className="flex min-h-0 flex-1 flex-col border-t border-line bg-panel text-panel-foreground md:w-[clamp(380px,30vw,460px)] md:flex-none md:border-t-0 md:border-r">
+				<header className="px-4 pt-3">
+					<div className="flex items-center justify-between gap-3">
+						<h1 className="font-display text-xl leading-tight font-semibold">
+							Mapline Point Date Thingy
+						</h1>
+						<div className="flex shrink-0 items-center gap-2">
+							<Show when="signed-out">
+								<SignInButton>
+									<button className="button">
+										<UserIcon size={18} />
+										Sign in
+									</button>
+								</SignInButton>
+							</Show>
+							<Show when="signed-in">
+								<button
+									className="button"
+									title="Copy a link to a read-only copy of your map"
+									onClick={copyShareLink}
+								>
+									<span aria-live="polite">{copied ? "Link copied" : "Share"}</span>
+								</button>
+								<UserButton>
+									<UserButton.UserProfilePage
+										label="Settings"
+										labelIcon={<SettingsIcon size={16} />}
+										url="settings"
+									>
+										<div className="flex flex-col">
+											<h1 className="text-[17px] font-bold">Settings</h1>
+											<div className="border-b border-modal-line mt-3.75 mb-5" />
+											<label className="flex flex-row items-center gap-1 text-[13px]">
+												<input
+													type="checkbox"
+													checked={settings.alwaysShowHoverMenus}
+													onChange={(e) =>
+														setSettings((prev) => ({
+															...prev,
+															alwaysShowHoverMenus: e.target.checked,
+														}))
+													}
+												/>
+												Always show every event&apos;s menu on the map
+											</label>
+											<label className="flex flex-row items-center gap-1 text-[13px] mt-2">
+												<input
+													type="checkbox"
+													checked={settings.showDatesOnMap}
+													onChange={(e) =>
+														setSettings((prev) => ({
+															...prev,
+															showDatesOnMap: e.target.checked,
+														}))
+													}
+												/>
+												Show dates on the map
+											</label>
+											<div className="border-b border-modal-line mt-3.75 mb-5" />
+											<label htmlFor="openai-api-key" className="text-[13px] font-medium">
+												OpenAI API key
+											</label>
+											<div className="flex flex-row mt-1">
+												<input
+													id="openai-api-key"
+													className="border border-modal-input rounded-md px-2 py-1 text-[13px] grow"
+													type={showApiKey ? "text" : "password"}
+													autoComplete="off"
+													spellCheck={false}
+													placeholder="sk-..."
+													value={openaiApiKey}
+													onChange={(e) => setOpenaiApiKey(e.target.value)}
+												/>
+												<button
+													className="border border-modal-input rounded-md ml-1 px-2 text-[13px]"
+													onClick={() => setShowApiKey((v) => !v)}
+												>
+													{showApiKey ? "Hide" : "Show"}
+												</button>
+												<button
+													className="border border-modal-input rounded-md ml-1 px-2 text-[13px]"
+													onClick={() => setOpenaiApiKey("")}
+												>
+													Clear
+												</button>
+											</div>
+											<p className="text-[11px] text-modal-muted mt-1">
+												Stored only in this browser&apos;s local storage. It&apos;s sent with
+												each chat request to reach OpenAI, but never saved on the server.
+											</p>
+										</div>
+									</UserButton.UserProfilePage>
+								</UserButton>
+							</Show>
+						</div>
+					</div>
+					<div role="tablist" aria-label="Sidebar" className="mt-3 flex gap-6">
+						{tabs.map((tab) => (
+							<button
+								key={tab.id}
+								id={`tab-${tab.id}`}
+								role="tab"
+								aria-selected={selectedTab === tab.id}
+								aria-controls={`panel-${tab.id}`}
+								className={`-mb-px border-b-2 pb-1.5 font-display text-lg font-semibold ${selectedTab === tab.id ? "border-accent text-panel-foreground" : "border-transparent text-muted hover:text-panel-foreground"}`}
+								onClick={() => setSelectedTab(tab.id)}
 							>
-								<div className="flex flex-col">
-									<h1 className="text-[17px] font-bold">Settings</h1>
-									<div className="border-b border-modal-line mt-3.75 mb-5" />
-									<label className="flex flex-row items-center gap-1 text-[13px]">
-										<input
-											type="checkbox"
-											checked={settings.alwaysShowHoverMenus}
-											onChange={(e) =>
-												setSettings((prev) => ({
-													...prev,
-													alwaysShowHoverMenus: e.target.checked,
-												}))
-											}
-										/>
-										Always Show Hover Menus
-									</label>
-									<label className="flex flex-row items-center gap-1 text-[13px] mt-2">
-										<input
-											type="checkbox"
-											checked={settings.showDatesOnMap}
-											onChange={(e) =>
-												setSettings((prev) => ({
-													...prev,
-													showDatesOnMap: e.target.checked,
-												}))
-											}
-										/>
-										Show Dates on Map
-									</label>
-									<div className="border-b border-modal-line mt-3.75 mb-5" />
-									<label htmlFor="openai-api-key" className="text-[13px] font-medium">
-										OpenAI API Key
-									</label>
-									<div className="flex flex-row mt-1">
-										<input
-											id="openai-api-key"
-											className="border border-modal-input rounded-md px-2 py-1 text-[13px] grow"
-											type={showApiKey ? "text" : "password"}
-											autoComplete="off"
-											spellCheck={false}
-											placeholder="sk-..."
-											value={openaiApiKey}
-											onChange={(e) => setOpenaiApiKey(e.target.value)}
-										/>
-										<button
-											className="border border-modal-input rounded-md ml-1 px-2 text-[13px]"
-											onClick={() => setShowApiKey((v) => !v)}
-										>
-											{showApiKey ? "Hide" : "Show"}
-										</button>
-										<button
-											className="border border-modal-input rounded-md ml-1 px-2 text-[13px]"
-											onClick={() => setOpenaiApiKey("")}
-										>
-											Clear
+								{tab.label}
+							</button>
+						))}
+					</div>
+				</header>
+				{/* Lane lines, the panel's one ornament, closing off the header */}
+				<div
+					aria-hidden="true"
+					className="h-[9px] shrink-0 border-t border-panel-foreground/70 bg-[linear-gradient(to_bottom,transparent_3px,rgb(238_242_252/0.35)_3px,rgb(238_242_252/0.35)_4px,transparent_4px)]"
+				/>
+				{selectedTab === "events" ? (
+					<div
+						id="panel-events"
+						role="tabpanel"
+						aria-labelledby="tab-events"
+						className="flex min-h-0 flex-1 flex-col"
+					>
+						<div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+							{!authLoaded ? (
+								<p className="px-2 py-6 text-muted">Loading…</p>
+							) : !isSignedIn ? (
+								<p className="px-2 py-6 text-muted">
+									Sign in to plan your events and see them on the map.
+								</p>
+							) : loadError ? (
+								<p className="px-2 py-6 text-danger">
+									{loadError} Reload the page to try again.
+								</p>
+							) : loaded ? (
+								<>
+									<div className="flex items-center justify-between px-2 pt-1 pb-1">
+										<p className="text-sm text-muted">
+											{events.length === 1 ? "1 event" : `${events.length} events`}
+											{groups.length > 0
+												? `, ${groups.length === 1 ? "1 group" : `${groups.length} groups`}`
+												: ""}
+										</p>
+										<button className="button h-7 px-2 text-sm" onClick={() => addGroup()}>
+											New group
 										</button>
 									</div>
-									<p className="text-[11px] text-modal-muted mt-1">
-										Stored only in this browser&apos;s local storage. It&apos;s sent with
-										each chat request to reach OpenAI, but never saved on the server.
-									</p>
-									<div className="border-b border-modal-line mt-3.75 mb-5" />
-									<p className="text-[13px] text-center">More Settings Coming Soon!</p>
+									{events.length === 0 && groups.length === 0 ? (
+										<p className="px-2 py-6 text-muted">
+											No events yet. Add your first one below, or ask the chat to add a few.
+										</p>
+									) : (
+										<EventTree
+											events={events}
+											groups={groups}
+											layers={layers}
+											onUpdateEvent={updateEvent}
+											onDeleteEvent={deleteEvent}
+											onUpdateGroup={updateGroup}
+											onDeleteGroup={deleteGroup}
+											onAddLayer={addLayer}
+											onUpdateLayer={updateLayer}
+											onDeleteLayer={deleteLayer}
+											onHoverEvent={setHoveredEventId}
+										/>
+									)}
+								</>
+							) : (
+								<p className="px-2 py-6 text-muted">Loading your events…</p>
+							)}
+						</div>
+						{loaded && !addFormOpen ? (
+							<div className="shrink-0 border-t border-line px-4 py-3">
+								<button
+									className="button-primary w-full"
+									aria-expanded={false}
+									aria-controls="add-event-form"
+									onClick={() => setAddFormOpen(true)}
+								>
+									Add an event
+								</button>
+							</div>
+						) : null}
+						{loaded && addFormOpen ? (
+							<form
+								id="add-event-form"
+								className="shrink-0 border-t border-line bg-panel-sunken/60 px-4 pt-3 pb-4"
+								aria-labelledby="add-event-heading"
+								onSubmit={handleAddEventSubmit}
+							>
+								<div className="flex items-center justify-between">
+									<h2
+										id="add-event-heading"
+										className="font-display text-base leading-tight font-semibold"
+									>
+										Add an event
+									</h2>
+									<button
+										type="button"
+										className="button h-7 border-transparent px-2 text-sm text-muted hover:text-panel-foreground"
+										aria-expanded={true}
+										aria-controls="add-event-form"
+										onClick={() => {
+											setAddFormOpen(false);
+											setSubmitError(null);
+										}}
+									>
+										Close
+									</button>
 								</div>
-							</UserButton.UserProfilePage>
-						</UserButton>
+								<div className="mt-2 grid grid-cols-2 gap-2">
+									<input
+										className="field"
+										aria-label="Name"
+										autoFocus
+										value={name}
+										onChange={(e) => setName(e.target.value)}
+										placeholder="Name"
+									/>
+									<input
+										className="field tabular-nums"
+										aria-label="Date, DD/MM/YYYY. Leave empty for today."
+										inputMode="numeric"
+										value={date}
+										onChange={(e) => setDate(e.target.value)}
+										placeholder="DD/MM/YYYY"
+									/>
+									<input
+										className="field col-span-2"
+										aria-label="Address"
+										value={address}
+										onChange={(e) => setAddress(e.target.value)}
+										onBlur={lookUpFormAddress}
+										placeholder="Address, or fill in the coordinates"
+									/>
+									<input
+										className="field tabular-nums"
+										aria-label="Latitude"
+										inputMode="decimal"
+										value={lat}
+										onChange={(e) => setLat(e.target.value)}
+										placeholder="Latitude"
+									/>
+									<input
+										className="field tabular-nums"
+										aria-label="Longitude"
+										inputMode="decimal"
+										value={lng}
+										onChange={(e) => setLng(e.target.value)}
+										placeholder="Longitude"
+									/>
+									<select
+										className="field"
+										aria-label="Icon"
+										value={icon}
+										onChange={(e) => setIcon(e.target.value as EventIcon)}
+									>
+										{EVENT_ICONS.map((icon) => (
+											<option key={icon} value={icon}>
+												{ICON_LABELS[icon]}
+											</option>
+										))}
+									</select>
+									<ColorSelect
+										className="flex min-w-0 gap-2"
+										selectClassName="field flex-1"
+										value={color}
+										onChange={setColor}
+									/>
+									<PlacementSelect
+										className="field col-span-2"
+										value={placement}
+										groups={groups}
+										layers={layers}
+										onChange={setPlacement}
+									/>
+								</div>
+								{submitError ? (
+									<p role="alert" className="mt-2 text-sm text-danger">
+										{submitError}
+									</p>
+								) : null}
+								<button type="submit" className="button-primary mt-3 w-full">
+									Add event
+								</button>
+							</form>
+						) : null}
 					</div>
-				</Show>
-			</div>
+				) : (
+					<div
+						id="panel-chat"
+						role="tabpanel"
+						aria-labelledby="tab-chat"
+						className="flex min-h-0 flex-1 flex-col"
+					>
+						<Chat
+							messages={messages}
+							sendMessage={sendMessage}
+							status={status}
+							stop={stop}
+							hasApiKey={openaiApiKey !== ""}
+							error={error}
+						/>
+					</div>
+				)}
+			</aside>
 			<MapView
 				events={visibleEvents}
 				alwaysShowHoverMenus={settings.alwaysShowHoverMenus}
@@ -871,150 +1095,6 @@ export default function Home() {
 				layers={layers}
 				highlightedId={hoveredEventId}
 			/>
-			<div className="fixed top-0 left-0 h-full w-1/4 bg-panel border-r border-line text-panel-foreground p-2 overflow-y-auto">
-				<div className="fixed top-0 left-0 w-1/4 px-2 flex flex-row justify-between border-b border-r border-line bg-panel">
-					<button
-						className={`text-lg ${selectedTab === "events" ? "underline" : ""}`}
-						onClick={() => setSelectedTab("events")}
-					>
-						Events
-					</button>
-					<button
-						className={`text-lg ${selectedTab === "chat" ? "underline" : ""}`}
-						onClick={() => setSelectedTab("chat")}
-					>
-						Chat
-					</button>
-				</div>
-				{selectedTab === "events" ? (
-					<div>
-						<div className="mb-64 mt-7">
-							{!authLoaded ? (
-								<div className="text-center">Loading...</div>
-							) : !isSignedIn ? (
-								<div className="text-center">Sign in to see your events.</div>
-							) : loadError ? (
-								<div className="text-center text-danger">{loadError}</div>
-							) : loaded ? (
-								<>
-									<div className="flex flex-row justify-end">
-										<button
-											className="border border-line rounded-md mt-2 mx-2 px-2 w-full"
-											onClick={() => addGroup()}
-										>
-											+ Group
-										</button>
-									</div>
-									<EventTree
-										events={events}
-										groups={groups}
-										layers={layers}
-										onUpdateEvent={updateEvent}
-										onDeleteEvent={deleteEvent}
-										onUpdateGroup={updateGroup}
-										onDeleteGroup={deleteGroup}
-										onAddLayer={addLayer}
-										onUpdateLayer={updateLayer}
-										onDeleteLayer={deleteLayer}
-										onHoverEvent={setHoveredEventId}
-									/>
-								</>
-							) : (
-								<div className="text-center">Loading...</div>
-							)}
-						</div>
-						{loaded ? (
-							<form
-								className="border border-line bg-panel rounded-xl m-1 flex flex-col fixed bottom-0 left-1 w-[calc(25%-16px)]"
-								onSubmit={handleAddEventSubmit}
-							>
-								{submitError ? (
-									<div className="text-danger mt-2 text-center">{submitError}</div>
-								) : null}
-								<div className="flex flex-col">
-									<div className="flex flex-row">
-										<input
-											className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-											value={name}
-											onChange={(e) => setName(e.target.value)}
-											placeholder="Name"
-										/>
-										<input
-											className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-											value={date}
-											onChange={(e) => setDate(e.target.value)}
-											placeholder="Date (DD/MM/YYYY)"
-										/>
-									</div>
-
-									<input
-										className="h-8 border border-line rounded-md mt-2 mx-2 px-2"
-										value={address}
-										onChange={(e) => setAddress(e.target.value)}
-										onBlur={lookUpFormAddress}
-										placeholder="Address"
-									/>
-									<div className="flex flex-row">
-										<input
-											className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-											value={lat}
-											onChange={(e) => setLat(e.target.value)}
-											placeholder="Latitude"
-										/>
-										<input
-											className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-											value={lng}
-											onChange={(e) => setLng(e.target.value)}
-											placeholder="Longitude"
-										/>
-									</div>
-									<div className="flex flex-row">
-										<select
-											className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2"
-											value={icon}
-											onChange={(e) => setIcon(e.target.value as EventIcon)}
-										>
-											{EVENT_ICONS.map((icon) => (
-												<option key={icon} value={icon}>
-													{ICON_LABELS[icon]}
-												</option>
-											))}
-										</select>
-										<ColorSelect
-											className="flex flex-row items-stretch gap-2 mt-2 ml-1 mr-2 w-1/2"
-											selectClassName="flex-1 h-8 border border-line rounded-md px-2"
-											value={color}
-											onChange={setColor}
-										/>
-									</div>
-									<PlacementSelect
-										className="h-8 border border-line bg-panel rounded-md mt-2 mx-2 px-2"
-										value={placement}
-										groups={groups}
-										layers={layers}
-										onChange={setPlacement}
-									/>
-									<button
-										type="submit"
-										className="h-8 border border-line rounded-md mt-2 mb-2 mx-2 px-2"
-									>
-										Add
-									</button>
-								</div>
-							</form>
-						) : null}
-					</div>
-				) : (
-					<Chat
-						messages={messages}
-						sendMessage={sendMessage}
-						status={status}
-						stop={stop}
-						hasApiKey={openaiApiKey !== ""}
-						error={error}
-					/>
-				)}
-			</div>
 		</main>
 	);
 }

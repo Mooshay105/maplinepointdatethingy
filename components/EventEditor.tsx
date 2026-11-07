@@ -8,6 +8,7 @@ import {
 	Layer,
 	MapEvent,
 	MapGroup,
+	colorHex,
 } from "@/utils/types";
 import { formatNzDate, parseNzDate } from "@/utils/dates";
 import { geocodeAddress } from "@/utils/geocode";
@@ -78,29 +79,51 @@ export default function EventEditor({
 		if (result) update({ lat: result.latitude, lng: result.longitude });
 	}
 
+	const lockButton = editable ? (
+		// The one control a locked event keeps
+		<button
+			className={`icon-button ${event.locked ? "text-accent" : ""}`}
+			title={event.locked ? "Unlock" : "Lock (stops all changes until unlocked)"}
+			aria-label={event.locked ? "Unlock event" : "Lock event"}
+			aria-pressed={event.locked}
+			onClick={() => onUpdate(event.id, { locked: !event.locked })}
+		>
+			<LockIcon open={!event.locked} size={18} />
+		</button>
+	) : null;
+
 	return (
 		<div className={className}>
-			<div className={`flex flex-row items-center ${collapsed ? "mb-2" : ""}`}>
+			<div className="flex items-center gap-1 px-1.5 py-1.5 pr-2">
 				{canCollapse ? (
 					<button
-						className="h-8 mt-2 ml-1 px-1"
+						className="icon-button w-6"
 						aria-label={collapsed ? "Expand event" : "Collapse event"}
 						aria-expanded={!collapsed}
 						// Straight to onUpdate, as update() is blocked while locked and collapsing is still allowed
 						onClick={() => onUpdate?.(event.id, { collapsed: !collapsed })}
 					>
-						<ChevronIcon open={!collapsed} size={20} />
+						<ChevronIcon open={!collapsed} size={18} />
 					</button>
 				) : null}
+				{/* The marker's colour, to match this card to its spot on the map */}
+				<span
+					aria-hidden="true"
+					className={`h-3 w-3 shrink-0 rounded-full ring-1 ring-panel-foreground/40 ${canCollapse ? "" : "ml-1"}`}
+					style={{ background: colorHex(event.iconColor) }}
+				/>
 				<input
-					className={`h-8 border border-line rounded-md mt-2 ${canCollapse ? "" : "ml-2"} mr-1 px-2 w-1/2 min-w-0`}
+					className="field flex-1 px-1.5 font-display text-[1.0625rem] font-semibold"
+					aria-label="Name"
 					value={event.name}
 					readOnly={readOnly}
 					onChange={(e) => update({ name: e.target.value })}
-					placeholder="Name"
+					placeholder="Untitled event"
 				/>
 				<input
-					className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2 min-w-0"
+					className="field w-[5.75rem] shrink-0 px-1.5 text-right text-sm tabular-nums"
+					aria-label="Date, DD/MM/YYYY"
+					inputMode="numeric"
 					value={drafts.date ?? formatNzDate(event.date)}
 					readOnly={readOnly}
 					onChange={(e) => setDrafts((prev) => ({ ...prev, date: e.target.value }))}
@@ -112,25 +135,16 @@ export default function EventEditor({
 							clearDraft("date");
 						}
 					}}
-					placeholder="Date (DD/MM/YYYY)"
+					placeholder="DD/MM/YYYY"
 				/>
-				{editable && !collapsed ? (
-					<button
-						className="h-8 border border-line rounded-md mt-2 mr-2 px-1 disabled:opacity-40"
-						title={event.locked ? "Unlock to hide or show" : event.visible ? "Hide" : "Show"}
-						aria-label={event.visible ? "Hide event" : "Show event"}
-						disabled={readOnly}
-						onClick={() => update({ visible: !event.visible })}
-					>
-						<EyeIcon crossed={!event.visible} />
-					</button>
-				) : null}
 			</div>
 			{collapsed ? null : (
-				<>
+				<div className="grid grid-cols-2 gap-2 px-3 pb-3">
 					{readOnly && !event.address ? null : (
 						<input
-							className={`block h-8 border rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)] ${lookupFailed ? "border-danger" : "border-line"}`}
+							className={`field col-span-2 ${lookupFailed ? "border-danger" : ""}`}
+							aria-label="Address"
+							aria-invalid={lookupFailed || undefined}
 							value={event.address}
 							readOnly={readOnly}
 							title={lookupFailed ? "Couldn't find this address" : undefined}
@@ -147,86 +161,65 @@ export default function EventEditor({
 							placeholder="Address"
 						/>
 					)}
-					<div className="flex flex-row">
-						<input
-							className="h-8 border border-line rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
-							value={drafts.lat ?? event.lat}
-							readOnly={readOnly}
-							onChange={(e) => updateCoordinate("lat", e.target.value)}
-							onBlur={() => clearDraft("lat")}
-							placeholder="Latitude"
-						/>
-						<input
-							className="h-8 border border-line rounded-md mt-2 ml-1 mr-2 px-2 w-1/2 min-w-0"
-							value={drafts.lng ?? event.lng}
-							readOnly={readOnly}
-							onChange={(e) => updateCoordinate("lng", e.target.value)}
-							onBlur={() => clearDraft("lng")}
-							placeholder="Longitude"
-						/>
-						{onDelete ? (
-							<button
-								className="h-8 border border-line rounded-md mt-2 mr-2 px-1 disabled:opacity-40"
-								title={event.locked ? "Unlock to delete" : "Delete"}
-								aria-label="Delete event"
-								disabled={event.locked}
-								onClick={() => onDelete(event.id)}
-							>
-								<TrashIcon />
-							</button>
-						) : null}
-					</div>
-					<div className="flex flex-row">
-						<select
-							className="h-8 border border-line bg-panel rounded-md mt-2 ml-2 mr-1 px-2 w-1/2 min-w-0"
-							value={event.icon}
-							disabled={readOnly}
-							onChange={(e) => update({ icon: e.target.value as EventIcon })}
-						>
-							{EVENT_ICONS.map((icon) => (
-								<option key={icon} value={icon}>
-									{ICON_LABELS[icon]}
-								</option>
-							))}
-						</select>
-						<ColorSelect
-							// "contents" puts the dropdown and swatch straight into this row, so they line up
-							// with the lat/lng inputs and delete button above
-							className="contents"
-							selectClassName="h-8 border border-line bg-panel rounded-md mt-2 ml-1 mr-2 px-2 w-1/2"
-							swatchClassName="mt-2 mr-2"
-							value={event.iconColor}
-							disabled={readOnly}
-							onChange={(iconColor) => update({ iconColor })}
-						/>
-						{editable ? (
-							// The one control a locked event keeps
-							<button
-								className={`h-8 border border-line rounded-md mt-2 mr-2 px-1 ${event.locked ? "bg-panel-raised" : ""}`}
-								title={event.locked ? "Unlock" : "Lock (stops all changes until unlocked)"}
-								aria-label={event.locked ? "Unlock event" : "Lock event"}
-								aria-pressed={event.locked}
-								onClick={() => onUpdate(event.id, { locked: !event.locked })}
-							>
-								<LockIcon open={!event.locked} />
-							</button>
-						) : null}
-					</div>
+					{lookupFailed ? (
+						<p className="col-span-2 -mt-1 text-sm text-danger">
+							Couldn&apos;t find this address. Check it, or type the coordinates.
+						</p>
+					) : null}
+					<input
+						className="field tabular-nums"
+						aria-label="Latitude"
+						inputMode="decimal"
+						value={drafts.lat ?? event.lat}
+						readOnly={readOnly}
+						onChange={(e) => updateCoordinate("lat", e.target.value)}
+						onBlur={() => clearDraft("lat")}
+						placeholder="Latitude"
+					/>
+					<input
+						className="field tabular-nums"
+						aria-label="Longitude"
+						inputMode="decimal"
+						value={drafts.lng ?? event.lng}
+						readOnly={readOnly}
+						onChange={(e) => updateCoordinate("lng", e.target.value)}
+						onBlur={() => clearDraft("lng")}
+						placeholder="Longitude"
+					/>
+					<select
+						className="field"
+						aria-label="Icon"
+						value={event.icon}
+						disabled={readOnly}
+						onChange={(e) => update({ icon: e.target.value as EventIcon })}
+					>
+						{EVENT_ICONS.map((icon) => (
+							<option key={icon} value={icon}>
+								{ICON_LABELS[icon]}
+							</option>
+						))}
+					</select>
+					<ColorSelect
+						className="flex min-w-0 gap-2"
+						selectClassName="field flex-1"
+						value={event.iconColor}
+						disabled={readOnly}
+						onChange={(iconColor) => update({ iconColor })}
+					/>
 					{groups && editable ? (
 						<PlacementSelect
 							disabled={readOnly}
-							className="block h-8 border border-line bg-panel rounded-md mt-2 mx-2 px-2 w-[calc(100%-16px)]"
+							className="field col-span-2"
 							value={event}
 							groups={groups}
 							layers={layers}
 							onChange={update}
 						/>
 					) : null}
-					{readOnly && !event.description ? (
-						<div className="mb-2" />
-					) : (
+					{readOnly && !event.description ? null : (
 						<textarea
-							className="block border border-line rounded-md mt-2 mb-2 mx-2 px-2 w-[calc(100%-16px)] resize-y min-h-[2.5em]"
+							className="field col-span-2 min-h-[2.5em] resize-y"
+							aria-label="Description"
 							rows={2}
 							value={event.description}
 							readOnly={readOnly}
@@ -234,7 +227,35 @@ export default function EventEditor({
 							placeholder="Description"
 						/>
 					)}
-				</>
+					{editable ? (
+						<div className="col-span-2 -mb-1 flex items-center justify-end gap-1">
+							{event.locked ? (
+								<p className="mr-auto text-sm text-muted">Locked. Unlock to make changes.</p>
+							) : null}
+							<button
+								className="icon-button"
+								title={event.locked ? "Unlock to hide or show" : event.visible ? "Hide" : "Show"}
+								aria-label={event.visible ? "Hide event" : "Show event"}
+								disabled={readOnly}
+								onClick={() => update({ visible: !event.visible })}
+							>
+								<EyeIcon crossed={!event.visible} size={18} />
+							</button>
+							{lockButton}
+							{onDelete ? (
+								<button
+									className="icon-button hover:text-danger"
+									title={event.locked ? "Unlock to delete" : "Delete"}
+									aria-label="Delete event"
+									disabled={event.locked}
+									onClick={() => onDelete(event.id)}
+								>
+									<TrashIcon size={18} />
+								</button>
+							) : null}
+						</div>
+					) : null}
+				</div>
 			)}
 		</div>
 	);
