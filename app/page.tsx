@@ -495,19 +495,35 @@ export default function Home() {
 				if (input.longitude !== undefined) changes.lng = input.longitude;
 				if (input.icon !== undefined) changes.icon = input.icon;
 				if (input.iconColor !== undefined) changes.iconColor = input.iconColor;
-				if (input.groupId !== undefined) {
-					if (!groupsRef.current.some((group) => group.id === input.groupId)) {
-						respond(`No group with id ${input.groupId}`);
-						return;
-					}
-					changes.groupId = input.groupId;
+				if (
+					typeof input.groupId === "number" &&
+					!groupsRef.current.some((group) => group.id === input.groupId)
+				) {
+					respond(`No group with id ${input.groupId}`);
+					return;
 				}
-				if (input.layerId !== undefined) {
-					if (!layersRef.current.some((layer) => layer.id === input.layerId)) {
-						respond(`No layer with id ${input.layerId}`);
-						return;
-					}
-					changes.layerId = input.layerId;
+				if (
+					typeof input.layerId === "number" &&
+					!layersRef.current.some((layer) => layer.id === input.layerId)
+				) {
+					respond(`No layer with id ${input.layerId}`);
+					return;
+				}
+				// Group and layer are always set together, like the placement dropdown does, as a
+				// leftover layer would otherwise keep the event in that layer's group
+				if (typeof input.layerId === "number") {
+					Object.assign(changes, parsePlacementValue(`l:${input.layerId}`, layersRef.current));
+				} else if (typeof input.groupId === "number") {
+					changes.groupId = input.groupId;
+					changes.layerId = null;
+				} else if (input.groupId === null) {
+					Object.assign(changes, UNGROUPED);
+				} else if (input.layerId === null) {
+					// Out of its layer, into the bare group it was in
+					const current = eventsRef.current.find((event) => event.id === input.id)!;
+					const { group } = placementOf(current, groupsRef.current, layersRef.current);
+					changes.groupId = group?.id ?? null;
+					changes.layerId = null;
 				}
 				if (input.date !== undefined) {
 					const parsed = parseNzDate(input.date);
@@ -541,6 +557,8 @@ export default function Home() {
 					date: formatNzDate(event.date),
 					latitude: event.lat,
 					longitude: event.lng,
+					icon: event.icon,
+					iconColor: event.iconColor,
 					visible: event.visible,
 					collapsed: event.collapsed,
 					groupId: event.groupId,
