@@ -826,10 +826,10 @@ export default function Home() {
 									>
 										<div className="flex flex-col">
 											<h1 className="text-[17px] font-bold">Settings</h1>
-											<div className="border-b border-modal-line mt-3.75 mb-5" />
+											<div className="border-b border-current/15 mt-3.75 mb-5" />
 											<label className="flex flex-row items-center gap-1 text-[13px]">
 												<input
-													className="size-4 accent-panel"
+													className="size-4"
 													type="checkbox"
 													checked={settings.alwaysShowHoverMenus}
 													onChange={(e) =>
@@ -843,7 +843,7 @@ export default function Home() {
 											</label>
 											<label className="flex flex-row items-center gap-1 text-[13px] mt-2">
 												<input
-													className="size-4 accent-panel"
+													className="size-4"
 													type="checkbox"
 													checked={settings.showDatesOnMap}
 													onChange={(e) =>
@@ -855,14 +855,14 @@ export default function Home() {
 												/>
 												Show dates on the map
 											</label>
-											<div className="border-b border-modal-line mt-3.75 mb-5" />
+											<div className="border-b border-current/15 mt-3.75 mb-5" />
 											<label htmlFor="openai-api-key" className="text-[13px] font-medium">
 												OpenAI API key
 											</label>
 											<div className="flex flex-row mt-1">
 												<input
 													id="openai-api-key"
-													className="border border-modal-input rounded-md px-2 py-1 text-[13px] grow"
+													className="border border-current/30 rounded-md px-2 py-1 text-[13px] grow"
 													type={showApiKey ? "text" : "password"}
 													autoComplete="off"
 													spellCheck={false}
@@ -871,19 +871,19 @@ export default function Home() {
 													onChange={(e) => setOpenaiApiKey(e.target.value)}
 												/>
 												<button
-													className="border border-modal-input rounded-md ml-1 px-2 text-[13px]"
+													className="border border-current/30 rounded-md ml-1 px-2 text-[13px]"
 													onClick={() => setShowApiKey((v) => !v)}
 												>
 													{showApiKey ? "Hide" : "Show"}
 												</button>
 												<button
-													className="border border-modal-input rounded-md ml-1 px-2 text-[13px]"
+													className="border border-current/30 rounded-md ml-1 px-2 text-[13px]"
 													onClick={() => setOpenaiApiKey("")}
 												>
 													Clear
 												</button>
 											</div>
-											<p className="text-[11px] text-modal-muted mt-1">
+											<p className="text-[11px] opacity-70 mt-1">
 												Stored only in this browser&apos;s local storage. It&apos;s sent with
 												each chat request to reach OpenAI, but never saved on the server.
 											</p>
@@ -913,7 +913,7 @@ export default function Home() {
 								aria-selected={selectedTab === tab.id}
 								aria-controls={`panel-${tab.id}`}
 								tabIndex={selectedTab === tab.id ? 0 : -1}
-								className={`-mb-px border-b-2 pt-1 pb-2 font-display text-lg font-semibold ${selectedTab === tab.id ? "border-accent text-panel-foreground" : "border-transparent text-muted hover:text-panel-foreground"}`}
+								className={`relative z-10 -mb-0.5 border-b-2 pt-1 pb-2 font-display text-lg font-semibold ${selectedTab === tab.id ? "border-accent text-panel-foreground" : "border-transparent text-muted hover:text-panel-foreground"}`}
 								onClick={() => setSelectedTab(tab.id)}
 							>
 								{tab.label}
@@ -924,7 +924,7 @@ export default function Home() {
 				{/* Lane lines, the panel's one ornament, closing off the header */}
 				<div
 					aria-hidden="true"
-					className="h-[10px] shrink-0 border-t-2 border-panel-foreground/75 bg-[linear-gradient(to_bottom,transparent_4px,rgb(238_242_252/0.5)_4px,rgb(238_242_252/0.5)_6px,transparent_6px)]"
+					className="h-[10px] shrink-0 border-t-2 border-panel-foreground/40 bg-[linear-gradient(to_bottom,transparent_4px,rgb(238_242_252/0.25)_4px,rgb(238_242_252/0.25)_6px,transparent_6px)]"
 				/>
 				{selectedTab === "events" ? (
 					<div
@@ -956,7 +956,7 @@ export default function Home() {
 												? `, ${groups.length === 1 ? "1 group" : `${groups.length} groups`}`
 												: ""}
 										</p>
-										<button className="button h-7 px-2 text-sm" onClick={() => addGroup()}>
+										<button className="button h-7 px-2 text-sm pointer-coarse:h-10" onClick={() => addGroup()}>
 											New group
 										</button>
 									</div>
@@ -1011,7 +1011,7 @@ export default function Home() {
 									</h2>
 									<button
 										type="button"
-										className="button h-7 border-transparent px-2 text-sm text-muted hover:text-panel-foreground"
+										className="button h-7 border-transparent px-2 text-sm text-muted pointer-coarse:h-10 hover:text-panel-foreground"
 										onClick={() => {
 											setAddFormOpen(false);
 											setSubmitError(null);

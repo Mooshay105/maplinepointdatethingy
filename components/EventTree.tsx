@@ -112,7 +112,7 @@ function Folder({
 		<section className="my-2" aria-label={folder.name || (kind === "group" ? "Untitled group" : "Untitled layer")}>
 			<div className="flex items-center gap-1 rounded-md py-0.5 pr-0.5">
 				<button
-					className="icon-button w-6"
+					className="icon-button w-6 pointer-coarse:w-10"
 					aria-label={open ? `Collapse ${kind}` : `Expand ${kind}`}
 					aria-expanded={open}
 					onClick={() => onUpdate({ collapsed: open })}
@@ -120,7 +120,7 @@ function Folder({
 					<ChevronIcon open={open} size={18} />
 				</button>
 				<input
-					className={`field flex-1 border-transparent border-b-field-line/50 bg-transparent px-1.5 font-display font-semibold hover:border-field-line focus-visible:border-accent ${kind === "group" ? "text-lg" : "text-base"}`}
+					className={`field flex-1 border-transparent border-b-field-line/50 bg-transparent px-1.5 font-display font-semibold hover:border-field-line focus-visible:border-accent ${kind === "group" ? "text-lg" : "text-base"} ${folder.visible ? "" : "text-muted"}`}
 					aria-label={kind === "group" ? "Group name" : "Layer name"}
 					value={folder.name}
 					onChange={(e) => onUpdate({ name: e.target.value })}
@@ -128,7 +128,7 @@ function Folder({
 				/>
 				{onAddLayer ? (
 					<button
-						className="button h-7 border-line/60 px-2 text-sm text-muted hover:text-panel-foreground"
+						className="button h-7 border-line/60 px-2 text-sm pointer-coarse:h-10 text-muted hover:text-panel-foreground"
 						title="Add a layer to this group"
 						onClick={() => {
 							if (!open) onUpdate({ collapsed: false });
@@ -156,10 +156,10 @@ function Folder({
 				</button>
 			</div>
 			{open ? (
-				// Dimmed while hidden, since nothing in here is on the map. The rule down the left
-				// shows what's inside: solid for a group, dashed for a layer.
+				// The rule down the left shows what's inside: solid for a group, dashed for a layer.
+				// A hidden folder only mutes its name, so the cards in it don't look disabled.
 				<div
-					className={`ml-2.5 border-l-2 pl-1 ${kind === "layer" ? "border-dashed border-line" : "border-line"} ${folder.visible ? "" : "opacity-50"}`}
+					className={`ml-2.5 border-l-2 pl-1 ${kind === "layer" ? "border-dashed border-line" : "border-line"} `}
 				>
 					{isEmpty ? (
 						<p className="py-2 pl-1 text-sm text-muted">

@@ -53,7 +53,7 @@ export default function ColorSelect({
 				type="color"
 				aria-label="Custom colour"
 				title="Custom colour"
-				className={`h-8 w-8.5 shrink-0 pointer-coarse:h-10 pointer-coarse:w-10 cursor-pointer rounded-md border border-field-line bg-transparent disabled:cursor-default ${swatchClassName}`}
+				className={`h-8 w-8.5 shrink-0 pointer-coarse:h-10 pointer-coarse:w-10 cursor-pointer rounded-md border border-field-line disabled:border-transparent bg-transparent disabled:cursor-default ${swatchClassName}`}
 				value={colorHex(value)}
 				disabled={disabled}
 				onChange={(e) => onChange(e.target.value as EventColor)}

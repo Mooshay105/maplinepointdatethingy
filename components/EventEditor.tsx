@@ -92,12 +92,17 @@ export default function EventEditor({
 		</button>
 	) : null;
 
+	// The outline that shows the title fields can be edited; utilities would beat the read-only style
+	const editableHint = readOnly
+		? ""
+		: "hover:border-field-line focus-visible:border-accent pointer-coarse:border-b-field-line/50";
+
 	return (
 		<div className={className}>
 			<div className="flex items-center gap-1 px-1.5 py-1.5 pr-2">
 				{canCollapse ? (
 					<button
-						className="icon-button w-6"
+						className="icon-button w-6 pointer-coarse:w-10"
 						aria-label={collapsed ? "Expand event" : "Collapse event"}
 						aria-expanded={!collapsed}
 						// Straight to onUpdate, as update() is blocked while locked and collapsing is still allowed
@@ -118,7 +123,7 @@ export default function EventEditor({
 				/>
 				<input
 					// Reads as the card's title, and shows its outline on hover or focus like the folder names
-					className={`field flex-1 border-transparent bg-transparent px-1.5 font-display text-[1.0625rem] font-semibold hover:border-field-line focus-visible:border-accent pointer-coarse:border-b-field-line/50 ${event.visible ? "" : "text-muted"}`}
+					className={`field flex-1 border-transparent bg-transparent px-1.5 font-display text-[1.0625rem] font-semibold ${editableHint} ${event.visible ? "" : "text-muted"}`}
 					aria-label="Name"
 					value={event.name}
 					readOnly={readOnly}
@@ -127,7 +132,7 @@ export default function EventEditor({
 					placeholder="Untitled event"
 				/>
 				<input
-					className="field w-[5.75rem] shrink-0 border-transparent bg-transparent px-1.5 text-right text-sm tabular-nums hover:border-field-line focus-visible:border-accent"
+					className={`field w-[5.75rem] shrink-0 border-transparent bg-transparent px-1.5 text-right text-sm tabular-nums pointer-coarse:text-base ${editableHint}`}
 					aria-label="Date, DD/MM/YYYY"
 					value={drafts.date ?? formatNzDate(event.date)}
 					readOnly={readOnly}
@@ -239,9 +244,6 @@ export default function EventEditor({
 					)}
 					{editable ? (
 						<div className="col-span-2 -mb-1 flex items-center justify-end gap-1">
-							{event.locked ? (
-								<p className="mr-auto text-sm text-muted">Locked</p>
-							) : null}
 							<button
 								className="icon-button"
 								title={event.locked ? "Unlock to hide or show" : event.visible ? "Hide" : "Show"}
