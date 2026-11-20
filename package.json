@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "bun test"
+    "test": "bun test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.97",
@@ -15,6 +17,8 @@
     "@clerk/nextjs": "^7.9.17",
     "@libsql/client": "^0.18.0",
     "ai": "^7.0.145",
+    "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.4",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",

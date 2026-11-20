@@ -138,18 +138,23 @@ export default function EventEditor({
 				<input
 					className={`field w-[5.75rem] shrink-0 border-transparent bg-transparent px-1.5 text-right text-sm tabular-nums pointer-coarse:text-base ${editableHint}`}
 					aria-label="Date, DD/MM/YYYY"
-					value={drafts.date ?? formatNzDate(event.date)}
+					value={drafts.date ?? (event.date ? formatNzDate(event.date) : "")}
 					readOnly={readOnly}
 					onChange={(e) => setDrafts((prev) => ({ ...prev, date: e.target.value }))}
 					onBlur={() => {
 						if (drafts.date === undefined) return;
+						if (drafts.date.trim() === "") {
+							update({ date: null });
+							clearDraft("date");
+							return;
+						}
 						const parsed = parseNzDate(drafts.date);
 						if (parsed) {
 							update({ date: parsed });
 							clearDraft("date");
 						}
 					}}
-					placeholder="DD/MM/YYYY"
+					placeholder="No date"
 				/>
 				{/* The event's state at a glance, also on a collapsed card */}
 				{!event.visible || event.locked ? (

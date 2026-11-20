@@ -46,6 +46,14 @@ describe("POST /api/events", () => {
 		expect(listed[0]).toEqual({ ...wireEvent(2001), locked: false });
 	});
 
+	test("accepts undated events and lists them after the dated ones", async () => {
+		expect((await create(wireEvent(2102, { date: null }))).status).toBe(201);
+		expect((await create(wireEvent(2101))).status).toBe(201);
+		const listed = await list();
+		expect(listed.map((e) => e.id)).toEqual([2101, 2102]);
+		expect(listed[1].date).toBeNull();
+	});
+
 	test("repeating a create is a no-op", async () => {
 		await create(wireEvent(3001, { name: "first" }));
 		await create(wireEvent(3001, { name: "second" }));

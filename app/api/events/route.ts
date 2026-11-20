@@ -1,7 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
+import { eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import z from "zod";
-import { db, ensureSchema, eventSchema, rowToEvent } from "@/utils/db";
+import { events } from "@/db/schema";
+import { db, eventFields, eventSchema } from "@/utils/db";
 
 /**
  * Lists the signed-in user's events, or any user's with ?userId=... (used by the share page).
@@ -13,12 +15,12 @@ export async function GET(req: NextRequest) {
 	const ownerId = req.nextUrl.searchParams.get("userId") || (await auth()).userId;
 	if (!ownerId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-	await ensureSchema();
-	const rs = await db.execute({
-		sql: "SELECT * FROM events WHERE user_id = ? ORDER BY date",
-		args: [ownerId],
-	});
-	return NextResponse.json(rs.rows.map(rowToEvent));
+	const rows = await db
+		.select(eventFields)
+		.from(events)
+		.where(eq(events.userId, ownerId))
+		.orderBy(sql`${events.date} is null`, events.date);
+	return NextResponse.json(rows);
 }
 
 /** Creates one event, or several when given an array. Ids that already exist are skipped, so retries are safe. */
@@ -30,33 +32,14 @@ export async function POST(req: Request) {
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 	}
-	const events = Array.isArray(parsed.data) ? parsed.data : [parsed.data];
+	const created = Array.isArray(parsed.data) ? parsed.data : [parsed.data];
 
-	await ensureSchema();
-	await db.batch(
-		events.map((e) => ({
-			sql: `INSERT OR IGNORE INTO events (id, user_id, name, description, address, lat, lng, date, icon, icon_color, visible, group_id, layer_id, travel_note, collapsed, locked)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			args: [
-				e.id,
-				userId,
-				e.name,
-				e.description,
-				e.address,
-				e.lat,
-				e.lng,
-				e.date,
-				e.icon,
-				e.iconColor,
-				e.visible ? 1 : 0,
-				e.groupId,
-				e.layerId,
-				e.travelNote,
-				e.collapsed ? 1 : 0,
-				e.locked ? 1 : 0,
-			],
-		})),
-		"write",
+	const [first, ...rest] = created.map((event) =>
+		db
+			.insert(events)
+			.values({ ...event, userId })
+			.onConflictDoNothing(),
 	);
+	if (first) await db.batch([first, ...rest]);
 	return NextResponse.json({ ok: true }, { status: 201 });
 }

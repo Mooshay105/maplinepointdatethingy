@@ -15,7 +15,7 @@ import {
 	MapGroup,
 	readableOn,
 } from "@/utils/types";
-import { daysBetween, formatNzDate } from "@/utils/dates";
+import { datedEvents, daysBetween, formatNzDate } from "@/utils/dates";
 import EventEditor from "./EventEditor";
 import { LayersIcon } from "./Icons";
 
@@ -124,7 +124,7 @@ export default function MapView({
 	events: MapEvent[];
 	fullScreen?: boolean;
 	alwaysShowHoverMenus?: boolean;
-	/** Shows each event's date under its marker. */
+	/** Shows each dated event's date under its marker. */
 	showDates?: boolean;
 	onUpdate?: (id: number, changes: Partial<MapEvent>) => void;
 	onDelete?: (id: number) => void;
@@ -223,7 +223,7 @@ export default function MapView({
 
 			overlaysRef.current.push(
 				new google.maps.Polyline({
-					path: events.map((event) => ({ lat: event.lat, lng: event.lng })),
+					path: datedEvents(events).map((event) => ({ lat: event.lat, lng: event.lng })),
 					geodesic: true,
 					strokeColor: "#FF0000",
 					strokeOpacity: 1,
@@ -281,8 +281,8 @@ export default function MapView({
 
 	const highlightedEvent = events.find((event) => event.id === highlightedId);
 
-	// One label per stretch of the line, i.e. between each event and the next (events come sorted by date)
-	const legs = events.slice(1).map((to, i) => ({ from: events[i], to }));
+	const lineEvents = datedEvents(events);
+	const legs = lineEvents.slice(1).map((to, i) => ({ from: lineEvents[i], to }));
 
 	const menuEvents = events.filter(
 		(event) => alwaysShowHoverMenus || event.id === hoveredId || event.id === focusedId,
@@ -355,7 +355,7 @@ export default function MapView({
 					})
 				: null}
 			{map && showDates
-				? events.map((event) => (
+				? lineEvents.map((event) => (
 						<MapAnchor
 							key={`date-${event.id}`}
 							map={map}

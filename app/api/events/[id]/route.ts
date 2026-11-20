@@ -1,19 +1,20 @@
 import { auth } from "@clerk/nextjs/server";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { columns, db, ensureSchema, eventChangesSchema, parseId, updateOwnedRow } from "@/utils/db";
+import { events } from "@/db/schema";
+import { db, eventChangesSchema, ownedRow, parseId } from "@/utils/db";
 import { LOCK_EXEMPT_FIELDS } from "@/utils/types";
 
 function lockedResponse() {
 	return NextResponse.json({ error: "The event is locked. Unlock it first." }, { status: 409 });
 }
 
-/** Whether the user has an event with this id at all, to tell "locked" apart from "not found". */
 async function eventExists(id: number, userId: string) {
-	const rs = await db.execute({
-		sql: "SELECT 1 FROM events WHERE id = ? AND user_id = ?",
-		args: [id, userId],
-	});
-	return rs.rows.length > 0;
+	const rows = await db
+		.select({ id: events.id })
+		.from(events)
+		.where(ownedRow(events, id, userId));
+	return rows.length > 0;
 }
 
 /**
@@ -31,20 +32,20 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/events/[id
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 	}
+	if (Object.keys(parsed.data).length === 0) return NextResponse.json({ ok: true });
 
-	await ensureSchema();
 	const unlocking = parsed.data.locked === false;
 	const onlyExempt = Object.keys(parsed.data).every((key) => LOCK_EXEMPT_FIELDS.includes(key));
-	// Checked in the same statement, so a lock can't land between a check and the update
-	const updated = await updateOwnedRow(
-		"events",
-		columns,
-		id,
-		userId,
-		parsed.data,
-		unlocking || onlyExempt ? undefined : "locked = 0",
-	);
-	if (!updated) {
+	const result = await db
+		.update(events)
+		.set(parsed.data)
+		.where(
+			and(
+				ownedRow(events, id, userId),
+				unlocking || onlyExempt ? undefined : eq(events.locked, false),
+			),
+		);
+	if (result.rowsAffected === 0) {
 		return (await eventExists(id, userId))
 			? lockedResponse()
 			: NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -60,11 +61,9 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/events/[
 	const id = parseId((await ctx.params).id);
 	if (id === null) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-	await ensureSchema();
-	const rs = await db.execute({
-		sql: "DELETE FROM events WHERE id = ? AND user_id = ? AND locked = 0",
-		args: [id, userId],
-	});
-	if (rs.rowsAffected === 0 && (await eventExists(id, userId))) return lockedResponse();
+	const result = await db
+		.delete(events)
+		.where(and(ownedRow(events, id, userId), eq(events.locked, false)));
+	if (result.rowsAffected === 0 && (await eventExists(id, userId))) return lockedResponse();
 	return NextResponse.json({ ok: true });
 }
