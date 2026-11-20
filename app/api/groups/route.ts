@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
+import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { db, ensureSchema, groupSchema, rowToGroup, rowToLayer } from "@/utils/db";
+import { layers, mapGroups } from "@/db/schema";
+import { db, groupFields, groupSchema, layerFields } from "@/utils/db";
 
 /**
  * Lists the signed-in user's groups and layers, or any user's with ?userId=... (used by the share page).
@@ -10,18 +12,15 @@ export async function GET(req: NextRequest) {
 	const ownerId = req.nextUrl.searchParams.get("userId") || (await auth()).userId;
 	if (!ownerId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-	await ensureSchema();
-	const [groups, layers] = await db.batch(
-		[
-			{ sql: "SELECT * FROM map_groups WHERE user_id = ? ORDER BY created", args: [ownerId] },
-			{ sql: "SELECT * FROM layers WHERE user_id = ? ORDER BY created", args: [ownerId] },
-		],
-		"read",
-	);
-	return NextResponse.json({
-		groups: groups.rows.map(rowToGroup),
-		layers: layers.rows.map(rowToLayer),
-	});
+	const [groups, groupLayers] = await db.batch([
+		db
+			.select(groupFields)
+			.from(mapGroups)
+			.where(eq(mapGroups.userId, ownerId))
+			.orderBy(mapGroups.created),
+		db.select(layerFields).from(layers).where(eq(layers.userId, ownerId)).orderBy(layers.created),
+	]);
+	return NextResponse.json({ groups, layers: groupLayers });
 }
 
 /** Creates a group. An id that already exists is skipped, so retries are safe. */
@@ -33,13 +32,10 @@ export async function POST(req: Request) {
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 	}
-	const g = parsed.data;
 
-	await ensureSchema();
-	await db.execute({
-		sql: `INSERT OR IGNORE INTO map_groups (id, user_id, name, visible, collapsed, created)
-			VALUES (?, ?, ?, ?, ?, ?)`,
-		args: [g.id, userId, g.name, g.visible ? 1 : 0, g.collapsed ? 1 : 0, Date.now()],
-	});
+	await db
+		.insert(mapGroups)
+		.values({ ...parsed.data, userId, created: Date.now() })
+		.onConflictDoNothing();
 	return NextResponse.json({ ok: true }, { status: 201 });
 }

@@ -1,10 +1,10 @@
 import { MapEvent } from "./types";
 import { createSync, sendJson } from "./sync";
 
-type WireEvent = Omit<MapEvent, "date"> & { date: number };
+type WireEvent = Omit<MapEvent, "date"> & { date: number | null };
 
 function toWire(fields: Partial<MapEvent>): Record<string, unknown> {
-	return fields.date ? { ...fields, date: fields.date.getTime() } : fields;
+	return fields.date !== undefined ? { ...fields, date: fields.date?.getTime() ?? null } : fields;
 }
 
 const sync = createSync<MapEvent>("/api/events", "event", toWire, true);
@@ -15,7 +15,7 @@ export async function fetchEvents(userId?: string): Promise<MapEvent[]> {
 	const res = await fetch(url, { cache: "no-store" });
 	if (!res.ok) throw new Error(`Failed to load events: ${res.status}`);
 	const events: WireEvent[] = await res.json();
-	return events.map((e) => ({ ...e, date: new Date(e.date) }));
+	return events.map((e) => ({ ...e, date: e.date === null ? null : new Date(e.date) }));
 }
 
 export const createEvent = sync.create;

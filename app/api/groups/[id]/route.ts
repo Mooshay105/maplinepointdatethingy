@@ -1,13 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import {
-	db,
-	ensureSchema,
-	groupChangesSchema,
-	groupColumns,
-	parseId,
-	updateOwnedRow,
-} from "@/utils/db";
+import { events, layers, mapGroups } from "@/db/schema";
+import { db, groupChangesSchema, ownedRow, parseId } from "@/utils/db";
 
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/groups/[id]">) {
 	const { userId } = await auth();
@@ -20,9 +15,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/groups/[id
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 	}
+	if (Object.keys(parsed.data).length === 0) return NextResponse.json({ ok: true });
 
-	await ensureSchema();
-	if (!(await updateOwnedRow("map_groups", groupColumns, id, userId, parsed.data))) {
+	const result = await db.update(mapGroups).set(parsed.data).where(ownedRow(mapGroups, id, userId));
+	if (result.rowsAffected === 0) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 	return NextResponse.json({ ok: true });
@@ -39,17 +35,13 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/groups/[
 	const id = parseId((await ctx.params).id);
 	if (id === null) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-	await ensureSchema();
-	await db.batch(
-		[
-			{
-				sql: "UPDATE events SET group_id = NULL, layer_id = NULL WHERE group_id = ? AND user_id = ? AND locked = 0",
-				args: [id, userId],
-			},
-			{ sql: "DELETE FROM layers WHERE group_id = ? AND user_id = ?", args: [id, userId] },
-			{ sql: "DELETE FROM map_groups WHERE id = ? AND user_id = ?", args: [id, userId] },
-		],
-		"write",
-	);
+	await db.batch([
+		db
+			.update(events)
+			.set({ groupId: null, layerId: null })
+			.where(and(eq(events.groupId, id), eq(events.userId, userId), eq(events.locked, false))),
+		db.delete(layers).where(and(eq(layers.groupId, id), eq(layers.userId, userId))),
+		db.delete(mapGroups).where(ownedRow(mapGroups, id, userId)),
+	]);
 	return NextResponse.json({ ok: true });
 }

@@ -1,14 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import type { Row } from "@libsql/client";
+import { getTableColumns } from "drizzle-orm";
+import { events } from "@/db/schema";
 import {
-	columns,
 	eventChangesSchema,
+	eventFields,
 	eventSchema,
 	groupChangesSchema,
 	layerSchema,
 	parseId,
-	rowToEvent,
-	rowToLayer,
 } from "@/utils/db";
 
 const wireEvent = {
@@ -59,9 +58,14 @@ describe("eventChangesSchema", () => {
 	});
 
 	test("every field has a column", () => {
+		const tableColumns = getTableColumns(events);
 		for (const key of Object.keys(eventChangesSchema.shape)) {
-			expect(columns[key as keyof typeof columns]).toBeTruthy();
+			expect(tableColumns[key as keyof typeof tableColumns]).toBeTruthy();
 		}
+	});
+
+	test("the browser gets every wire field and not the owner", () => {
+		expect(Object.keys(eventFields).sort()).toEqual(Object.keys(eventSchema.shape).sort());
 	});
 });
 
@@ -74,49 +78,5 @@ describe("group and layer schemas", () => {
 
 	test("group changes are partial", () => {
 		expect(groupChangesSchema.parse({ visible: false })).toEqual({ visible: false });
-	});
-});
-
-describe("row mapping", () => {
-	test("rowToEvent converts sqlite values", () => {
-		const row = {
-			id: 1,
-			name: "Meet",
-			description: null,
-			address: null,
-			lat: 1,
-			lng: 2,
-			date: 3,
-			icon: "dna",
-			icon_color: "#abcdef",
-			visible: 0,
-			group_id: 7,
-			layer_id: null,
-			travel_note: null,
-			collapsed: 1,
-			locked: 1,
-		} as unknown as Row;
-		expect(rowToEvent(row)).toEqual({
-			id: 1,
-			name: "Meet",
-			description: "",
-			address: "",
-			lat: 1,
-			lng: 2,
-			date: 3,
-			icon: "dna",
-			iconColor: "#abcdef",
-			visible: false,
-			groupId: 7,
-			layerId: null,
-			travelNote: "",
-			collapsed: true,
-			locked: true,
-		});
-	});
-
-	test("rowToLayer includes the group id", () => {
-		const row = { id: 2, name: "L", visible: 1, collapsed: 0, group_id: 9 } as unknown as Row;
-		expect(rowToLayer(row)).toEqual({ id: 2, name: "L", visible: true, collapsed: false, groupId: 9 });
 	});
 });

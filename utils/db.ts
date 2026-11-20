@@ -1,113 +1,33 @@
-import { createClient, Row } from "@libsql/client";
+import { createClient } from "@libsql/client";
+import { and, eq, SQL } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/libsql";
 import z from "zod";
-import { EVENT_ICONS, EventColor, EventIcon, eventColorSchema } from "./types";
+import * as schema from "@/db/schema";
+import { events, layers, mapGroups } from "@/db/schema";
+import { EVENT_ICONS, eventColorSchema } from "./types";
 
-export const db = createClient({
-	url: process.env.TURSO_DATABASE_URL!,
-	authToken: process.env.TURSO_AUTH_TOKEN,
-});
-
-let schemaReady: Promise<void> | null = null;
-
-/** Creates (or upgrades) the tables on first use. Later calls reuse the same promise. */
-export function ensureSchema() {
-	schemaReady ??= createSchema().catch((err) => {
-		schemaReady = null; // Let the next request try again
-		throw err;
-	});
-	return schemaReady;
-}
-
-async function createSchema() {
-	await db.execute(
-		`CREATE TABLE IF NOT EXISTS events (
-			id INTEGER PRIMARY KEY,
-			user_id TEXT NOT NULL,
-			name TEXT NOT NULL,
-			lat REAL NOT NULL,
-			lng REAL NOT NULL,
-			date INTEGER NOT NULL,
-			icon TEXT NOT NULL,
-			icon_color TEXT NOT NULL,
-			visible INTEGER NOT NULL DEFAULT 1,
-			description TEXT NOT NULL DEFAULT '',
-			address TEXT NOT NULL DEFAULT '',
-			group_id INTEGER,
-			layer_id INTEGER,
-			travel_note TEXT NOT NULL DEFAULT '',
-			collapsed INTEGER NOT NULL DEFAULT 0,
-			locked INTEGER NOT NULL DEFAULT 0
-		)`,
-	);
-	await db.execute("CREATE INDEX IF NOT EXISTS events_user_id ON events (user_id)");
-	await db.execute(
-		`CREATE TABLE IF NOT EXISTS map_groups (
-			id INTEGER PRIMARY KEY,
-			user_id TEXT NOT NULL,
-			name TEXT NOT NULL,
-			visible INTEGER NOT NULL DEFAULT 1,
-			collapsed INTEGER NOT NULL DEFAULT 0,
-			created INTEGER NOT NULL
-		)`,
-	);
-	await db.execute("CREATE INDEX IF NOT EXISTS map_groups_user_id ON map_groups (user_id)");
-	await db.execute(
-		`CREATE TABLE IF NOT EXISTS layers (
-			id INTEGER PRIMARY KEY,
-			user_id TEXT NOT NULL,
-			group_id INTEGER NOT NULL,
-			name TEXT NOT NULL,
-			visible INTEGER NOT NULL DEFAULT 1,
-			collapsed INTEGER NOT NULL DEFAULT 0,
-			created INTEGER NOT NULL
-		)`,
-	);
-	await db.execute("CREATE INDEX IF NOT EXISTS layers_user_id ON layers (user_id)");
-
-	// Upgrade tables created by older versions of the app
-	const tableInfo = await db.execute("PRAGMA table_info(events)");
-	const existingColumns = tableInfo.rows.map((r) => String(r.name));
-	if (!existingColumns.includes("description")) {
-		await db.execute("ALTER TABLE events ADD COLUMN description TEXT NOT NULL DEFAULT ''");
-	}
-	if (!existingColumns.includes("address")) {
-		await db.execute("ALTER TABLE events ADD COLUMN address TEXT NOT NULL DEFAULT ''");
-	}
-	if (!existingColumns.includes("group_id")) {
-		await db.execute("ALTER TABLE events ADD COLUMN group_id INTEGER");
-	}
-	if (!existingColumns.includes("layer_id")) {
-		await db.execute("ALTER TABLE events ADD COLUMN layer_id INTEGER");
-	}
-	if (!existingColumns.includes("travel_note")) {
-		await db.execute("ALTER TABLE events ADD COLUMN travel_note TEXT NOT NULL DEFAULT ''");
-	}
-	if (!existingColumns.includes("collapsed")) {
-		await db.execute("ALTER TABLE events ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0");
-	}
-	if (!existingColumns.includes("locked")) {
-		await db.execute("ALTER TABLE events ADD COLUMN locked INTEGER NOT NULL DEFAULT 0");
-	}
-	if (existingColumns.includes("visable")) {
-		await db.execute("ALTER TABLE events RENAME COLUMN visable TO visible");
-	}
-	for (const table of ["map_groups", "layers"]) {
-		const info = await db.execute(`PRAGMA table_info(${table})`);
-		if (!info.rows.some((r) => String(r.name) === "collapsed")) {
-			await db.execute(`ALTER TABLE ${table} ADD COLUMN collapsed INTEGER NOT NULL DEFAULT 0`);
-		}
-	}
-}
+/** The Turso database, through Drizzle. The tables come from db/migrations, applied with `bun run db:migrate`. */
+export const db = drizzle(
+	createClient({
+		url: process.env.TURSO_DATABASE_URL!,
+		authToken: process.env.TURSO_AUTH_TOKEN,
+	}),
+	{ schema },
+);
 
 const idSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 
-/** Reads a route's [id] param, or null if it isn't a valid id. */
+/**
+ * Reads a route's [id] param.
+ * @param raw The param as it appears in the URL.
+ * @returns The id, or null if it isn't a valid id.
+ */
 export function parseId(raw: string) {
 	const id = Number(raw);
 	return Number.isSafeInteger(id) ? id : null;
 }
 
-/** Event as sent over the wire: same as MapEvent, but the date is epoch milliseconds. */
+/** Event as sent over the wire: same as MapEvent, but the date is epoch milliseconds (or null). */
 export const eventSchema = z.object({
 	id: idSchema,
 	name: z.string(),
@@ -115,7 +35,7 @@ export const eventSchema = z.object({
 	address: z.string(),
 	lat: z.number(),
 	lng: z.number(),
-	date: z.number(),
+	date: z.number().nullable(),
 	icon: z.enum(EVENT_ICONS),
 	iconColor: eventColorSchema,
 	visible: z.boolean(),
@@ -123,58 +43,35 @@ export const eventSchema = z.object({
 	layerId: idSchema.nullable(),
 	travelNote: z.string(),
 	collapsed: z.boolean(),
-	// Optional so a page loaded before locking existed can still create events
+	/** Optional so a page loaded before locking existed can still create events. */
 	locked: z.boolean().default(false),
 });
 
+/** The fields a PATCH can change. Without locked's default, so leaving it out doesn't count as unlocking. */
 export const eventChangesSchema = eventSchema
 	.omit({ id: true })
-	// Without the default, so leaving out `locked` doesn't count as unlocking
 	.extend({ locked: z.boolean() })
 	.partial();
 
 export type EventChanges = z.infer<typeof eventChangesSchema>;
 
-export function rowToEvent(row: Row): z.infer<typeof eventSchema> {
-	return {
-		id: Number(row.id),
-		name: String(row.name),
-		description: String(row.description ?? ""),
-		address: String(row.address ?? ""),
-		lat: Number(row.lat),
-		lng: Number(row.lng),
-		date: Number(row.date),
-		icon: row.icon as EventIcon,
-		iconColor: row.icon_color as EventColor,
-		visible: Boolean(row.visible),
-		groupId: nullableId(row.group_id),
-		layerId: nullableId(row.layer_id),
-		travelNote: String(row.travel_note ?? ""),
-		collapsed: Boolean(row.collapsed),
-		locked: Boolean(row.locked),
-	};
-}
-
-function nullableId(value: unknown) {
-	return value == null ? null : Number(value);
-}
-
-/** Maps EventChanges keys to their column names. */
-export const columns: Record<keyof EventChanges, string> = {
-	name: "name",
-	description: "description",
-	address: "address",
-	lat: "lat",
-	lng: "lng",
-	date: "date",
-	icon: "icon",
-	iconColor: "icon_color",
-	visible: "visible",
-	groupId: "group_id",
-	layerId: "layer_id",
-	travelNote: "travel_note",
-	collapsed: "collapsed",
-	locked: "locked",
+/** The event columns sent to the browser: everything but the owner. */
+export const eventFields = {
+	id: events.id,
+	name: events.name,
+	description: events.description,
+	address: events.address,
+	lat: events.lat,
+	lng: events.lng,
+	date: events.date,
+	icon: events.icon,
+	iconColor: events.iconColor,
+	visible: events.visible,
+	groupId: events.groupId,
+	layerId: events.layerId,
+	travelNote: events.travelNote,
+	collapsed: events.collapsed,
+	locked: events.locked,
 };
 
 export const groupSchema = z.object({
@@ -186,59 +83,39 @@ export const groupSchema = z.object({
 
 export const groupChangesSchema = groupSchema.omit({ id: true }).partial();
 
-export const groupColumns: Record<keyof z.infer<typeof groupChangesSchema>, string> = {
-	name: "name",
-	visible: "visible",
-	collapsed: "collapsed",
-};
-
 export const layerSchema = groupSchema.extend({ groupId: idSchema });
 
 /** Same as a group's: layers can't be moved to another group. */
 export const layerChangesSchema = groupChangesSchema;
 
-export const layerColumns = groupColumns;
+/** The group columns sent to the browser. */
+export const groupFields = {
+	id: mapGroups.id,
+	name: mapGroups.name,
+	visible: mapGroups.visible,
+	collapsed: mapGroups.collapsed,
+};
 
-export function rowToGroup(row: Row): z.infer<typeof groupSchema> {
-	return {
-		id: Number(row.id),
-		name: String(row.name),
-		visible: Boolean(row.visible),
-		collapsed: Boolean(row.collapsed),
-	};
-}
-
-export function rowToLayer(row: Row): z.infer<typeof layerSchema> {
-	return { ...rowToGroup(row), groupId: Number(row.group_id) };
-}
+/** The layer columns sent to the browser. */
+export const layerFields = {
+	id: layers.id,
+	name: layers.name,
+	visible: layers.visible,
+	collapsed: layers.collapsed,
+	groupId: layers.groupId,
+};
 
 /**
- * Sets the given fields on one of the user's rows.
- * @param columnNames Maps each field to its column, which also keeps unknown keys out of the SQL.
- * @returns False if the user has no row with that id.
+ * Matches one of the user's rows.
+ * @param table The table the row is in.
+ * @param id The row's id.
+ * @param userId The signed-in user, who has to own the row.
+ * @returns A condition for a where clause.
  */
-export async function updateOwnedRow(
-	table: string,
-	columnNames: Record<string, string>,
+export function ownedRow(
+	table: typeof events | typeof mapGroups | typeof layers,
 	id: number,
 	userId: string,
-	changes: Record<string, unknown>,
-	/** More SQL the row has to match, e.g. "locked = 0". */
-	extraCondition?: string,
-) {
-	const entries = Object.entries(changes);
-	if (entries.length === 0) return true;
-
-	const rs = await db.execute({
-		sql: `UPDATE ${table} SET ${entries.map(([k]) => `${columnNames[k]} = ?`).join(", ")}
-			WHERE id = ? AND user_id = ?${extraCondition ? ` AND (${extraCondition})` : ""}`,
-		args: [
-			...entries.map(([, v]) =>
-				typeof v === "boolean" ? (v ? 1 : 0) : (v as string | number | null),
-			),
-			id,
-			userId,
-		],
-	});
-	return rs.rowsAffected > 0;
+): SQL {
+	return and(eq(table.id, id), eq(table.userId, userId))!;
 }

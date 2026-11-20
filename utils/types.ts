@@ -121,7 +121,8 @@ export type MapEvent = {
 	address: string;
 	lat: number;
 	lng: number;
-	date: Date;
+	/** When the event is on, or null when it has no date. Undated events get a marker but stay off the route line. */
+	date: Date | null;
 	icon: EventIcon;
 	iconColor: EventColor;
 	visible: boolean;

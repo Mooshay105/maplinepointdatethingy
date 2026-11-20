@@ -31,7 +31,7 @@ import {
 	placementOf,
 	UNGROUPED,
 } from "@/utils/groups";
-import { daysBetween, formatNzDate, parseNzDate } from "@/utils/dates";
+import { compareByDate, datedEvents, daysBetween, formatNzDate, parseNzDate } from "@/utils/dates";
 import { getOpenaiApiKey, setOpenaiApiKey, useOpenaiApiKey } from "@/utils/openaiApiKey";
 import {
 	AddEventInput,
@@ -62,6 +62,7 @@ const chatTransport = new DefaultChatTransport({
 export default function Home() {
 	const [name, setName] = useState("");
 	const [date, setDate] = useState("");
+	const [noDate, setNoDate] = useState(false);
 	const [address, setAddress] = useState("");
 	const [lat, setLat] = useState("");
 	const [lng, setLng] = useState("");
@@ -162,9 +163,7 @@ export default function Home() {
 			const next = prev.map((event) =>
 				event.id === id ? { ...event, ...changes } : event,
 			);
-			return changes.date !== undefined
-				? next.sort((a, b) => a.date.getTime() - b.date.getTime())
-				: next;
+			return changes.date !== undefined ? next.sort(compareByDate) : next;
 		});
 		if ("locked" in changes) {
 			// Send the lock on its own, after any edits still waiting to go out. Merged into one
@@ -304,12 +303,12 @@ export default function Home() {
 	}
 
 	/**
-	 * Adds a new event. An empty date means today.
+	 * Adds a new event. An empty date means today, and null means no date.
 	 * @returns The new event, or null if the date is invalid.
 	 */
 	function addEvent(fields: {
 		name: string;
-		date: string;
+		date: string | null;
 		lat: number;
 		lng: number;
 		icon: EventIcon;
@@ -320,8 +319,13 @@ export default function Home() {
 		groupId?: number | null;
 		layerId?: number | null;
 	}): MapEvent | null {
-		const parsedDate = fields.date.trim() === "" ? new Date() : parseNzDate(fields.date);
-		if (!parsedDate) {
+		const parsedDate =
+			fields.date === null
+				? null
+				: fields.date.trim() === ""
+					? new Date()
+					: parseNzDate(fields.date);
+		if (fields.date !== null && !parsedDate) {
 			setSubmitError("Invalid date, use DD/MM/YYYY.");
 			return null;
 		}
@@ -343,9 +347,7 @@ export default function Home() {
 			collapsed: false,
 			locked: false,
 		};
-		setEvents((prev) =>
-			[...prev, event].sort((a, b) => a.date.getTime() - b.date.getTime()),
-		);
+		setEvents((prev) => [...prev, event].sort(compareByDate));
 		eventsSync.createEvent(event);
 		return event;
 	}
@@ -392,7 +394,7 @@ export default function Home() {
 		const { group, layer } = placementOf(placement, groups, layers);
 		const added = addEvent({
 			name,
-			date,
+			date: noDate ? null : date,
 			address,
 			lat: Number(coords.lat),
 			lng: Number(coords.lng),
@@ -419,9 +421,9 @@ export default function Home() {
 		setTimeout(() => setCopied(false), 2000);
 	}
 
-	/** Each stretch of the map's route line: every shown event to the next one, by date. */
+	/** Each stretch of the map's route line: every shown, dated event to the next one, by date. */
 	function shownLegs() {
-		const shown = eventsRef.current.filter((event) =>
+		const shown = datedEvents(eventsRef.current).filter((event) =>
 			isShownOnMap(event, groupsRef.current, layersRef.current),
 		);
 		return shown.slice(1).map((to, i) => ({ from: shown[i], to }));
@@ -536,7 +538,9 @@ export default function Home() {
 					changes.groupId = group?.id ?? null;
 					changes.layerId = null;
 				}
-				if (input.date !== undefined) {
+				if (input.date === null) {
+					changes.date = null;
+				} else if (input.date !== undefined) {
 					const parsed = parseNzDate(input.date);
 					if (!parsed) {
 						respond(`Invalid date "${input.date}", use DD/MM/YYYY`);
@@ -565,7 +569,7 @@ export default function Home() {
 					name: event.name,
 					description: event.description,
 					address: event.address,
-					date: formatNzDate(event.date),
+					date: event.date ? formatNzDate(event.date) : null,
 					latitude: event.lat,
 					longitude: event.lng,
 					icon: event.icon,
@@ -1034,9 +1038,10 @@ export default function Home() {
 									<input
 										className="field tabular-nums"
 										aria-label="Date, DD/MM/YYYY. Leave empty for today."
-										value={date}
+										value={noDate ? "" : date}
+										disabled={noDate}
 										onChange={(e) => setDate(e.target.value)}
-										placeholder="DD/MM/YYYY"
+										placeholder={noDate ? "No date" : "DD/MM/YYYY"}
 									/>
 									<input
 										className="field col-span-2"
@@ -1100,7 +1105,21 @@ export default function Home() {
 										onChange={setPlacement}
 									/>
 								</div>
-								<p className="mt-1.5 text-xs text-muted">Leave the date empty for today.</p>
+								<div className="mt-1.5 flex items-center justify-between gap-2 text-xs text-muted">
+									<span>
+										{noDate
+											? "No date: shown on the map, but not on the line."
+											: "Leave the date empty for today."}
+									</span>
+									<label className="flex shrink-0 cursor-pointer items-center gap-1.5">
+										<input
+											type="checkbox"
+											checked={noDate}
+											onChange={(e) => setNoDate(e.target.checked)}
+										/>
+										No date
+									</label>
+								</div>
 								{submitError ? (
 									<p role="alert" className="mt-2 text-sm text-danger">
 										{submitError}

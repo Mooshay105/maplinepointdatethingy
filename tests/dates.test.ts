@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { daysBetween, formatNzDate, parseNzDate } from "@/utils/dates";
+import { compareByDate, datedEvents, daysBetween, formatNzDate, parseNzDate } from "@/utils/dates";
 
 describe("parseNzDate", () => {
 	test("reads DD/MM/YYYY as day first", () => {
@@ -60,5 +60,28 @@ describe("daysBetween", () => {
 		// NZ and EU daylight saving both change somewhere in March/April and September/October
 		expect(daysBetween(new Date(2025, 2, 1), new Date(2025, 4, 1))).toBe(61);
 		expect(daysBetween(new Date(2025, 8, 1), new Date(2025, 10, 1))).toBe(61);
+	});
+});
+
+describe("compareByDate", () => {
+	test("sorts by date, with undated events last", () => {
+		const events = [
+			{ id: 1, date: null },
+			{ id: 2, date: new Date(2025, 5, 1) },
+			{ id: 3, date: null },
+			{ id: 4, date: new Date(2025, 0, 1) },
+		];
+		expect(events.sort(compareByDate).map((e) => e.id)).toEqual([4, 2, 1, 3]);
+	});
+});
+
+describe("datedEvents", () => {
+	test("drops undated events and keeps the order", () => {
+		const events = [
+			{ id: 1, date: new Date(2025, 0, 1) },
+			{ id: 2, date: null },
+			{ id: 3, date: new Date(2025, 0, 2) },
+		];
+		expect(datedEvents(events).map((e) => e.id)).toEqual([1, 3]);
 	});
 });

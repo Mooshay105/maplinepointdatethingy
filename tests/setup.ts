@@ -9,6 +9,10 @@ import { join } from "node:path";
 process.env.TURSO_DATABASE_URL = `file:${join(mkdtempSync(join(tmpdir(), "mlpdt-")), "test.db")}`;
 delete process.env.TURSO_AUTH_TOKEN;
 
+const { db } = await import("@/utils/db");
+const { migrate } = await import("drizzle-orm/libsql/migrator");
+await migrate(db, { migrationsFolder: "db/migrations" });
+
 /** Who the mocked Clerk auth() says is signed in. Tests set this; null means signed out. */
 export const authState: { userId: string | null } = { userId: null };
 
