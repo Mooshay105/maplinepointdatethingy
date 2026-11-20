@@ -10,7 +10,6 @@ import { db, eventFields, eventSchema } from "@/utils/db";
  * Shared maps are public on purpose: anyone with the link can view them without signing in,
  * so the user id in the link is the only thing keeping a map private. Only reading is public;
  * creating, editing and deleting still need you to be signed in as the owner.
- * Undated events come after the dated ones.
  */
 export async function GET(req: NextRequest) {
 	const ownerId = req.nextUrl.searchParams.get("userId") || (await auth()).userId;

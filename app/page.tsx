@@ -407,6 +407,7 @@ export default function Home() {
 		setSubmitError(null);
 		setName("");
 		setDate("");
+		setNoDate(false);
 		setAddress("");
 		formLookup.current = null;
 		// Ready for the next one

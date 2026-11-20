@@ -20,7 +20,6 @@ async function eventExists(id: number, userId: string) {
 /**
  * Changes some of an event's fields. A locked event only takes changes to its lock or to whether
  * it's collapsed in the sidebar; anything else is refused, unless the same request unlocks it.
- * The lock is checked in the same statement as the update, so a lock can't land between the two.
  */
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/events/[id]">) {
 	const { userId } = await auth();
