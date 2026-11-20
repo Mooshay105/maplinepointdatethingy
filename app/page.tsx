@@ -7,6 +7,7 @@ import EventTree from "@/components/EventTree";
 import PlacementSelect from "@/components/PlacementSelect";
 import ColorSelect from "@/components/ColorSelect";
 import { SettingsIcon, UserIcon } from "@/components/Icons";
+import { Logo } from "@/components/Logo";
 import {
 	editsLockedEvent,
 	EVENT_ICONS,
@@ -792,7 +793,8 @@ export default function Home() {
 			<aside className="panel-scheme flex min-h-0 flex-1 flex-col border-t border-line bg-panel text-panel-foreground md:w-[clamp(380px,30vw,460px)] md:flex-none md:border-t-0 md:border-r">
 				<header className="px-4 pt-3">
 					<div className="flex items-center justify-between gap-3">
-						<h1 className="font-display text-xl leading-tight font-semibold">
+						<h1 className="flex items-center gap-2 font-display text-xl leading-tight font-semibold">
+							<Logo className="shrink-0" />
 							Mapline Point Date Thingy
 						</h1>
 						<div className="flex shrink-0 items-center gap-2">
