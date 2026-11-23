@@ -25,10 +25,11 @@ UI icons live in `components/Icons.tsx`; map markers are `public/icons/<icon>.sv
 ## Checks
 
 - `bun run lint`
+- `bun run typecheck`: generates Next.js route types, then runs `tsc`
 - `bun run test`: the tests in `tests/`, run with Bun's built-in test runner. They use a throwaway SQLite file instead of Turso and a fake Clerk sign-in, so they need no `.env.local`.
 - `bun run build`
 
-GitHub Actions runs all three on every push and pull request (`.github/workflows/ci.yml`).
+GitHub Actions runs all four on every pull request and push to `main` (`.github/workflows/ci.yml`).
 
 # Todo:
 
